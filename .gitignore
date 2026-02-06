@@ -16,6 +16,8 @@ server/.env
 server/config.json
 server/robot.lock.json
 server/data/
+server/activity.json
+server/system.log.jsonl
 
 # Editor directories and files
 .vscode/*
