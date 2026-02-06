@@ -285,7 +285,7 @@ const SHOPIFY_OAUTH_SCOPES = "read_content,write_content,read_products,read_orde
 // Local callback path (Shopify app redirect URL must point here)
 const SHOPIFY_OAUTH_CALLBACK_PATH = "/admin/shopify/oauth/callback";
 
-const BLOG_ID = "gid://shopify/Blog/115366625592";
+const DEFAULT_BLOG_ID = String(process.env.BLOG_ID || "");
 const AUTHOR_NAME = "Monroe Mushroom Co";
 const DEFAULT_TAGS = ["seo", "mushrooms"];
 const BILLING_PLAN = {
@@ -570,6 +570,10 @@ app.post("/admin/testpost", async (req, res) => {
     if (!session) {
       return res.status(400).json({ ok: false, error: "Shopify not connected" });
     }
+    const blogId = await resolveBlogId(cfg, session);
+    if (!blogId) {
+      return res.status(400).json({ ok: false, error: "Missing blog ID" });
+    }
 
     const url = `https://${session.shopDomain}/admin/api/2025-07/graphql.json`;
 
@@ -584,7 +588,7 @@ app.post("/admin/testpost", async (req, res) => {
 
     const variables = {
       article: {
-        blogId: BLOG_ID,
+        blogId,
         title: `Test post ${new Date().toISOString()}`,
         author: { name: AUTHOR_NAME },
         body:
@@ -1393,6 +1397,45 @@ function shouldPostNow(cfg) {
   return getAllDueProfileIndexesNow(cfg).length > 0;
 }
 
+
+async function resolveBlogId(cfg, session) {
+  if (cfg?.blogId) return cfg.blogId;
+  if (DEFAULT_BLOG_ID) {
+    cfg.blogId = DEFAULT_BLOG_ID;
+    saveConfig(cfg);
+    return cfg.blogId;
+  }
+  try {
+    const shopifyUrl = `https://${session.shopDomain}/admin/api/2025-07/graphql.json`;
+    const query = `
+      query GetBlogs($first: Int!) {
+        blogs(first: $first) {
+          edges {
+            node { id title }
+          }
+        }
+      }
+    `;
+    const r = await fetch(shopifyUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": session.accessToken,
+      },
+      body: JSON.stringify({ query, variables: { first: 5 } }),
+    });
+    const data = await r.json().catch(() => null);
+    const blogId = data?.data?.blogs?.edges?.[0]?.node?.id || "";
+    if (blogId) {
+      cfg.blogId = blogId;
+      saveConfig(cfg);
+      return blogId;
+    }
+  } catch {
+    // fall through
+  }
+  return "";
+}
 
 async function generateTopics(cfg) {
   const batchSize = cfg.topicGen?.batchSize ?? 10;
@@ -3890,6 +3933,9 @@ Guidelines:
   }
 
     // --- 2) Create article in Shopify ---
+  const blogId = await resolveBlogId(cfg, session);
+  if (!blogId) throw new Error("Missing blog ID");
+
   const shopifyUrl = `https://${session.shopDomain}/admin/api/2025-07/graphql.json`;
   const mutation = `
     mutation CreateArticle($article: ArticleCreateInput!) {
@@ -3905,7 +3951,7 @@ Guidelines:
 
   const variables = {
     article: {
-      blogId: BLOG_ID,
+      blogId,
       title: post.title,
       body: post.html,
       author: { name: AUTHOR_NAME },
