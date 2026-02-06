@@ -297,8 +297,10 @@ const BILLING_PLAN = {
 const BILLING_TEST = String(process.env.SHOPIFY_BILLING_TEST || "").toLowerCase() === "true";
 const TASK_NAME = "Shopify SEO Robot";
 const ROBOT_BAT = path.join(__dirname, "robot-start.bat");
-const STARTUP_DIR = path.join(process.env.APPDATA, "Microsoft\\Windows\\Start Menu\\Programs\\Startup");
-const STARTUP_CMD = path.join(STARTUP_DIR, `${TASK_NAME}.cmd`);
+const STARTUP_DIR = process.env.APPDATA
+  ? path.join(process.env.APPDATA, "Microsoft\\Windows\\Start Menu\\Programs\\Startup")
+  : "";
+const STARTUP_CMD = STARTUP_DIR ? path.join(STARTUP_DIR, `${TASK_NAME}.cmd`) : "";
 const CONFIG_PATH = path.join(__dirname, "config.json");
 
 const DATA_DIR = path.join(__dirname, "data");
@@ -1626,11 +1628,15 @@ function runCmd(cmd) {
 }
 
 function startupStatus() {
+  if (!STARTUP_CMD) return false;
   return fs.existsSync(STARTUP_CMD);
 }
 
 async function enableStartup() {
   try {
+    if (!STARTUP_DIR || !STARTUP_CMD) {
+      return { ok: false, stdout: "", stderr: "Startup not supported on this OS" };
+    }
     fs.mkdirSync(STARTUP_DIR, { recursive: true });
 
     const cmdText = `@echo off\r\ncall "${ROBOT_BAT}"\r\n`;
@@ -1644,6 +1650,9 @@ async function enableStartup() {
 
 async function disableStartup() {
   try {
+    if (!STARTUP_CMD) {
+      return { ok: false, stdout: "", stderr: "Startup not supported on this OS" };
+    }
     if (fs.existsSync(STARTUP_CMD)) {
       fs.unlinkSync(STARTUP_CMD);
     }
