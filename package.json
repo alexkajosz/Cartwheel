@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
+    "postinstall": "npm --prefix server install",
+    "prestart": "npm run build",
     "start": "node server/index.js",
     "lint": "eslint .",
     "preview": "vite preview",
