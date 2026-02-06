@@ -1,0 +1,4143 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cartwheel- In Motion </title>
+    <style>
+      :root {
+        --bg: #0b0f19;
+        --card: #111827;
+        --muted: #9ca3af;
+        --text: #e5e7eb;
+        --border: rgba(255,255,255,0.08);
+        --btn: #2563eb;
+        --btn2: rgba(255,255,255,0.08);
+        --ok: #22c55e;
+        --bad: #ef4444;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        padding: 24px;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+        background: radial-gradient(1200px 800px at 20% 0%, rgba(37,99,235,0.18), transparent 55%),
+                    radial-gradient(900px 600px at 90% 10%, rgba(34,197,94,0.12), transparent 60%),
+                    var(--bg);
+		    min-height: 100vh;
+        color: var(--text);
+      }
+
+/* Desktop-only UI scale */
+@media (min-width: 900px) {
+  .wrap {
+    transform: scale(1.2);
+    transform-origin: top center;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+}
+
+      .wrap { max-width: 980px; margin: 0 auto; }
+      .header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+        align-content: start;
+      }
+
+      h1 { margin: 0; font-size: 22px; letter-spacing: 0.2px; }
+      .sub { margin-top: 6px; color: var(--muted); font-size: 13px; }
+
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+      @media (max-width: 820px) { .row { grid-template-columns: 1fr; } }
+
+/* Bottom row should stretch to the tallest card (usually Actions when Dev Tools is open) */
+.bottomRow {
+  align-items: stretch;
+}
+
+/* Topics card becomes a flex column so the list can be the scroll area */
+#topicsCard {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The topics list should take remaining space and scroll */
+#topicList.topic-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 26px;
+}
+      .card {
+        background: rgba(17,24,39,0.75);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px;
+        backdrop-filter: blur(8px);
+        position: relative;
+      }
+      .card h2 {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+        color: #d1d5db;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        font-size: 12px;
+        color: #d1d5db;
+        background: rgba(255,255,255,0.03);
+      }
+      .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--muted); }
+      .dot.ok { background: var(--ok); }
+      .dot.bad { background: var(--bad); }
+
+      label { display:block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+      input {
+        width: 100%;
+        padding: 10px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(0,0,0,0.25);
+        color: var(--text);
+        outline: none;
+      }
+
+      .inline { display:flex; gap: 10px; align-items: flex-start; }
+      .inline > * { flex: 1; }
+#addTimeBtn {
+  flex: 0 0 auto !important;
+  width: 44px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+}
+
+/* Hide the browser's built-in time input icon (Chrome/Edge/Safari) */
+#timePicker::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* Firefox doesn't show the same icon, but keep spacing consistent */
+#timePicker {
+  padding-right: 12px;
+}
+
+      button {
+        border: 0;
+        cursor: pointer;
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-weight: 600;
+        color: white;
+        background: var(--btn);
+      }
+      button.secondary {
+        background: var(--btn2);
+        border: 1px solid var(--border);
+        color: #e5e7eb;
+      }
+.day-btn.selected {
+  background: var(--btn);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: white;
+}
+
+.day-btn {
+  height: 42px;
+  width: 100%;
+  padding: 0 !important;
+  border-radius: 14px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+      button:active { transform: translateY(1px); }
+
+      .muted { color: var(--muted); font-size: 12px; }
+            .status {
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        min-height: 0;
+        display: none;
+      }
+
+      .topics {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .topics li {
+        display:flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+      }
+      .topics li:last-child { border-bottom: none; }
+      .topicText { color: #e5e7eb; font-size: 13px; line-height: 1.3; }
+      .topicActions button {
+        padding: 6px 10px;
+        font-size: 12px;
+        border-radius: 9px;
+      }
+
+      .footer {
+        margin-top: 14px;
+        display:flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .kbd {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        font-size: 12px;
+        padding: 2px 6px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: rgba(0,0,0,0.25);
+        color: #d1d5db;
+      }
+.activity-scroll {
+  margin-top: 10px;
+  overflow-y: auto;
+  padding-right: 14px;
+  padding-bottom: 25px;
+}
+
+.topic-scroll {
+  overflow-y: auto;
+  padding-right: 14px;
+  padding-bottom: 25px;
+}
+
+/* Dark themed scrollbar (Chrome, Edge) */
+.topic-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.topic-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 12px 0;
+}
+
+.topic-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+}
+
+.topic-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Dark themed scrollbar (Chrome, Edge) */
+.activity-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.activity-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 12px 0; /* THIS fixes the top/bottom cutoff */
+}
+
+.activity-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+}
+
+.activity-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Confirm modal (same styling as Settings) */
+#confirmOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.55);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  z-index:100000; /* must be higher than #appSetupOverlay (99999) */
+}
+
+#confirmModal{
+  width:min(560px, 95vw);
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:16px;
+  box-shadow:0 20px 80px rgba(0,0,0,0.55);
+}
+
+/* Settings modal */
+#settingsOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.55);
+  display:none;
+  align-items:flex-start;
+  padding-top:80px;
+  justify-content:center;
+  padding:217px;
+  z-index:9999;
+}
+
+#settingsModal{
+  width:min(530px, 95vw);
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:16px;
+  box-shadow:0 20px 80px rgba(0,0,0,0.55);
+}
+/* Actions row alignment (make pills + buttons line up in perfect rows) */
+.actions-row {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 12px;
+  align-items: center;
+}
+
+.actions-row .pill {
+  width: 100%;
+}
+
+/* Settings: don't stretch the pill */
+
+.actions-row button {
+  width: 100%;
+  height: 34px;
+}
+
+/* Online / Offline diagnostic glows */
+.status-pill.offline-user {
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.6),
+              0 0 8px rgba(255,255,255,0.25);
+}
+
+.status-pill.offline-error {
+  box-shadow: 0 0 0 1px rgba(255,200,0,0.8),
+              0 0 10px rgba(255,200,0,0.35);
+}
+
+/* Make sliders reach the true ends */
+input[type="range"] {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+/* Chrome / Edge */
+input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  margin-left: 0;
+}
+
+/* Firefox */
+input[type="range"]::-moz-range-track {
+  width: 100%;
+}
+
+input[type="range"]::-moz-range-thumb {
+  border: none;
+}
+
+/* === Settings: unified row layout === */
+.settings-row {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+/* Lock pill geometry */
+.settings-row .pill {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+
+/* Buttons & sliders share identical footprint */
+.settings-row button,
+.settings-row input[type="range"] {
+  height: 36px;
+  width: 100%;
+}
+
+/* Slider vertical centering */
+.settings-row input[type="range"] {
+  align-self: center;
+}
+
+/* System Log modal */
+#systemLogOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.55);
+  display:none;
+  align-items:flex-start;
+  justify-content:center;
+  padding:217px;
+  z-index:9999;
+}
+
+#systemLogModal{
+  width:min(720px, 95vw);
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:16px;
+  box-shadow:0 20px 80px rgba(0,0,0,0.55);
+}
+
+    </style>
+  </head>
+
+  <body>
+  <!-- v0.3: full-page setup gate overlay -->
+  <div
+    id="appSetupOverlay"
+    style="
+      display:none;
+      position:fixed;
+      inset:0;
+      z-index:99999;
+      background:rgba(10,14,25,0.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:24px;
+    "
+  >
+    <div style="display:flex; flex-direction:column; gap:14px; align-items:center;">
+      <div style="font-size:22px; font-weight:900; color:#e5e7eb; line-height:1.15;">
+        Setup required
+      </div>
+      <div style="max-width:520px; color:rgba(229,231,235,0.85); font-size:13px; line-height:1.4;">
+        Complete setup to use Cartwheel.
+      <div
+        id="setupWizard"
+        style="
+          width:560px;
+          margin-top:14px;
+          border-radius:16px;
+          border:1px solid rgba(255,255,255,0.10);
+          background:rgba(17,24,39,0.94);
+          box-shadow:0 18px 50px rgba(0,0,0,0.45);
+          padding:16px;
+          text-align:left;
+        "
+      >
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <div style="display:flex; flex-direction:column; gap:2px;">
+  <div style="font-weight:900; font-size:14px; color:#e5e7eb;">Business Setup</div>
+  <div class="muted" id="setupBizNamePreview" style="font-size:12px;">—</div>
+</div>
+          <div class="pill">
+  <span class="dot" id="setupStatusDot"></span>
+  <span id="setupStatusText">—</span>
+</div>
+        </div>
+
+      <div
+  id="setupStepLabel"
+  style="margin-top:12px; color:rgba(229,231,235,0.85); font-size:12px; line-height:1.45;"
+>
+  Step 1 of 7
+</div>
+
+<div id="setupStep0" style="display:none;">
+  <div style="margin-top:12px;">
+    <div class="muted" style="font-weight:700; margin-bottom:6px;">Connect Shopify</div>
+    <div class="muted" style="font-size:12px; margin-bottom:10px;">
+      Paste your Shopify domain + Admin API access token to connect this install to a store.
+    </div>
+  </div>
+
+  <div style="margin-top:12px;">
+    <div class="muted" style="font-weight:700; margin-bottom:6px;">Shopify domain</div>
+    <input id="setupShopifyDomain" placeholder="your-store.myshopify.com" />
+  </div>
+
+  <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px;">
+    <button class="secondary" type="button" onclick="restartSetup()">Restart setup</button>
+<button type="button" onclick="setupStartShopifyOAuthFromWizard()">Connect</button>
+  </div>
+</div>
+<!-- NEW: Step 1 — Autofill choice (UI only for now) -->
+<div id="setupStep1Choice" style="display:none;">
+
+  <div style="margin-top:12px;">
+    <div class="muted" style="font-weight:700; margin-bottom:6px;">Autofill setup?</div>
+
+    <div class="muted" style="font-size:12px; margin-bottom:10px; line-height:1.4;">
+      Cartwheel can fill this out automatically using your Shopify data. You can still edit everything.
+    </div>
+  </div>
+
+  <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px;">
+    <button
+      class="secondary"
+      type="button"
+      onclick="setupChooseAutofill('manual')"
+      title="Enter everything manually"
+    >I'll enter manually</button>
+
+    <button
+      type="button"
+       onclick="setupChooseAutofill('auto')"
+      title="Autofill and then let me edit"
+    >Autofill for me</button>
+  </div>
+
+</div>
+
+<!-- NEW: Loading screen (fake 5s bar) -->
+<div id="setupStepLoading" style="display:none;">
+  <div style="margin-top:12px;">
+    <div class="muted" style="font-weight:700; margin-bottom:6px;">Autofilling setup…</div>
+
+    <div class="muted" style="font-size:12px; margin-bottom:10px; line-height:1.4;">
+      Pulling Shopify details and preparing your setup. This takes a few seconds.
+    </div>
+
+    <div style="height:10px; border-radius:999px; background:rgba(255,255,255,0.08); overflow:hidden; border:1px solid rgba(255,255,255,0.10);">
+      <div
+        id="setupLoadBar"
+        style="height:100%; width:0%; background:rgba(37,99,235,0.85); border-radius:999px;"
+      ></div>
+    </div>
+
+    <div class="muted" id="setupLoadText" style="margin-top:10px; font-size:12px;">Starting…</div>
+  </div>
+</div>
+
+<div id="setupStep1">
+
+
+        <div style="margin-top:12px;">
+          <div class="muted" style="font-weight:700; margin-bottom:6px;">Business name</div>
+          <input id="setupBusinessName" placeholder="Type your business name" />
+        </div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px;">
+          <button class="secondary" type="button" disabled>Back</button>
+          <button type="button" onclick="setupNext()">Next</button>
+        </div>
+</div>
+<div id="setupStep2" style="display:none;">
+  <div style="margin-top:12px;">
+    <div class="muted" style="font-weight:700; margin-bottom:6px;">Industry</div>
+    <input id="setupIndustry" placeholder="e.g. E-commerce, SaaS, Local services" />
+  </div>
+  <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px;">
+    <button class="secondary" type="button" onclick="setupBack()">Back</button>
+    <button type="button" onclick="setupNext()">Next</button>
+
+</div>
+</div>
+<div id="setupStep3" style="display:none;">
+
+  <div style="margin-top:12px;">
+    <div class="muted" style="font-weight:700; margin-bottom:6px;">
+      Products / Services
+    </div>
+    <div class="muted" style="font-size:12px; margin-bottom:8px;">
+      List what you sell (comma separated). Example: “beanies, hoodies, stickers”
+    </div>
+    <input id="setupProducts" placeholder="products / services..." />
+        <div style="margin-top:12px;">
+      <div class="muted" style="font-weight:700; margin-bottom:6px;">
+        Excluded topics
+      </div>
+      <div class="muted" style="font-size:12px; margin-bottom:8px;">
+        List words or topics Cartwheel must never write about or mention (comma separated).
+      </div>
+
+            <input id="setupExcludedTopics" placeholder="e.g. competitor brands" autocomplete="off" style="background: rgba(0,0,0,0.25); color: var(--text);" />
+    </div>
+    <div class="muted" style="font-size:12px;">
+    </div>
+  </div>
+
+  <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px;">
+    <button class="secondary" type="button" onclick="setupBack()">Back</button>
+    <button type="button" onclick="setupNext()">Next</button>
+  </div>
+
+</div>
+<div id="setupStep4" style="display:none;">
+
+  <div style="margin-top:12px;">
+    <div class="muted" style="font-weight:700; margin-bottom:6px;">
+      Target customer
+    </div>
+    <div class="muted" style="font-size:12px; margin-bottom:8px;">
+      (Next step)
+    </div>
+    <input id="setupTargetCustomer" placeholder="e.g. busy parents, fitness enthusiasts, small businesses..." />
+  </div>
+
+  <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px;">
+    <button class="secondary" type="button" onclick="setupBack()">Back</button>
+    <button type="button" onclick="setupNext()">Next</button>
+  </div>
+</div>
+<div id="setupStep5" style="display:none;">
+
+  <div style="margin-top:12px;">
+    <div class="muted" style="font-weight:700; margin-bottom:6px;">
+      Content goals
+    </div>
+
+    <div class="muted" style="font-size:12px; margin-bottom:8px;">
+      Choose what Cartwheel should optimize for.
+    </div>
+
+<div
+  id="setupGoals"
+  style="
+    display:grid;
+    grid-template-columns: 22px 1fr;
+    column-gap:12px;
+    row-gap:12px;
+    align-items:center;
+    margin-top:12px;
+  "
+>
+  <input id="goalTraffic" type="checkbox" checked style="transform:scale(1.1);" />
+  <label for="goalTraffic" style="margin:0; cursor:pointer; color:rgba(229,231,235,0.92); font-weight:700;">
+    Traffic
+  </label>
+
+  <input id="goalSales" type="checkbox" checked style="transform:scale(1.1);" />
+  <label for="goalSales" style="margin:0; cursor:pointer; color:rgba(229,231,235,0.92); font-weight:700;">
+    Sales
+  </label>
+
+  <input id="goalAuthority" type="checkbox" checked style="transform:scale(1.1);" />
+  <label for="goalAuthority" style="margin:0; cursor:pointer; color:rgba(229,231,235,0.92); font-weight:700;">
+    Authority
+  </label>
+</div>
+
+
+  </div>
+
+  <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px;">
+    <button class="secondary" type="button" onclick="setupBack()">Back</button>
+    <button type="button" onclick="setupNext()">Next</button>
+  </div>
+</div>
+
+<div id="setupStep6" style="display:none;">
+  <div style="margin-top:12px;">
+    <div class="muted" style="font-weight:700; margin-bottom:6px;">
+      Posting tone
+    </div>
+
+    <div class="muted" style="font-size:12px; margin-bottom:10px;">
+      Choose the default voice Cartwheel should use.
+    </div>
+
+    <select id="setupTone">
+      <option value="professional">Professional</option>
+      <option value="friendly" selected>Friendly</option>
+      <option value="bold">Bold</option>
+    </select>
+  </div>
+
+  <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px;">
+    <button class="secondary" type="button" onclick="setupBack()">Back</button>
+    <button type="button" onclick="setupNext()">Next</button>
+  </div>
+</div>
+
+<div id="setupStep7" style="display:none;">
+  <div style="margin-top:12px;">
+    <div class="muted" style="font-weight:700; margin-bottom:6px;">
+      Review & finish
+    </div>
+
+    <div class="muted" style="font-size:12px; margin-bottom:12px;">
+      Confirm everything below. You can come back and change this later.
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:10px; margin-top:6px;">
+
+  <div style="display:flex; justify-content:space-between; gap:16px;">
+    <div class="muted" style="font-size:12px;">Business name</div>
+    <div id="reviewBusinessName" style="font-weight:700; color:rgba(229,231,235,0.92); text-align:right;">—</div>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; gap:16px;">
+    <div class="muted" style="font-size:12px;">Industry</div>
+    <div id="reviewIndustry" style="font-weight:700; color:rgba(229,231,235,0.92); text-align:right;">—</div>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; gap:16px;">
+    <div class="muted" style="font-size:12px;">Products / Services</div>
+    <div id="reviewProducts" style="font-weight:700; color:rgba(229,231,235,0.92); text-align:right;">—</div>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; gap:16px;">
+    <div class="muted" style="font-size:12px;">Target customer</div>
+    <div id="reviewTargetCustomer" style="font-weight:700; color:rgba(229,231,235,0.92); text-align:right;">—</div>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; gap:16px;">
+    <div class="muted" style="font-size:12px;">Content goals</div>
+    <div id="reviewGoals" style="font-weight:700; color:rgba(229,231,235,0.92); text-align:right;">—</div>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; gap:16px;">
+    <div class="muted" style="font-size:12px;">Posting tone</div>
+    <div id="reviewTone" style="font-weight:700; color:rgba(229,231,235,0.92); text-align:right;">—</div>
+  </div>
+<div style="display:flex; justify-content:space-between; gap:16px;">
+  <div class="muted" style="font-size:12px;">Excluded topics</div>
+  <div id="reviewExcludedTopics" style="font-weight:700; color:rgba(229,231,235,0.92); text-align:right;">—</div>
+</div>
+
+</div>
+
+  </div>
+
+  <div style="display:flex; gap:10px; justify-content:space-between; margin-top:16px;">
+  <button class="secondary" type="button" onclick="restartSetup()">Restart setup</button>
+
+  <div style="display:flex; gap:10px;">
+<button class="secondary" type="button" onclick="showSetupWelcome()" title="Back to start" aria-label="Back to start">
+  <svg
+  width="18"
+  height="18"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2.2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <!-- vertical bar -->
+  <line x1="6" y1="4" x2="6" y2="20"></line>
+
+  <!-- arrow tail -->
+  <line x1="18" y1="12" x2="10" y2="12"></line>
+
+  <!-- arrow head -->
+  <polyline points="13 8 9 12 13 16"></polyline>
+</svg>
+
+</button>
+
+    <button class="secondary" type="button" onclick="setupBack()">Back</button>
+    <button type="button" onclick="finishSetup()">Finish setup</button>
+  </div>
+</div>
+
+</div>
+
+</div>
+
+
+</div>
+
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+      </div>
+      </div>
+    </div>
+  </div>
+    <div class="wrap">
+      <div class="header">
+        <div>
+          <h1>AutoBlogger v0.4.1</h1>
+          <div class="sub">
+            Admin Dashboard
+          </div>
+        </div>
+	<div id="headerPills" style="display:flex; gap:8px; align-items:center; justify-content:flex-end;">
+<div
+  class="pill"
+  id="settingsBtn"
+  style="cursor:pointer;"
+  onclick="openSettings()"
+>
+  <span>⚙</span>
+  <span>Settings</span>
+</div>
+
+<div
+  class="pill"
+  id="accountBtn"
+  style="cursor:pointer;"
+onclick="openAccountOAuth()"
+  title="Shopify account"
+>
+  <span>👤</span>
+  <span>Account</span>
+</div>
+
+          <div class="pill status-pill" id="robotStatus" onclick="toggleHeaderRobot()" style="cursor:pointer;">
+            <span class="dot" id="robotStatusDot"></span>
+            <span id="robotStatusText">—</span>
+          </div>
+<div class="pill" id="clockPill" style="margin:0; cursor:pointer;" onclick="toggleClockView()">
+    <span class="dot" id="clockDot"></span>
+    <span id="clockText">—</span>
+  </div>
+        </div>
+       </div>
+      <div class="row topRow">
+	<div class="card topRowCard" id="activityCard" style="position:relative; overflow:hidden; display:flex; flex-direction:column;">
+          <div style="position:relative; margin-bottom:4px; min-height:26px;">
+  <!-- Left: title -->
+  <h2 style="margin:0;">Recent Activity</h2>
+
+  <!-- Right: range tabs (top-right) -->
+  <div
+    class="muted"
+    style="position:absolute; right:0; top:0; display:flex; align-items:center; gap:8px; white-space:nowrap;"
+  >
+    <span id="activityRange7d" style="cursor:pointer;">7d</span>
+    <span>•</span>
+    <span id="activityRange30d" style="cursor:pointer;">30d</span>
+    <span>•</span>
+    <span id="activityRangeMTD" style="cursor:pointer;" title="Month to Date">Mtd</span>
+  </div>
+</div>
+
+	   <div id="activityList" class="muted activity-scroll" style="flex:1; min-height:0; overflow:auto; padding-bottom:28px;"></div>
+
+           <div
+             class="muted"
+             id="dailyPostsText"
+             style="position:absolute; right:18px; bottom:14px; max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; pointer-events:none;"
+           >
+             Daily Posts: — / —
+           </div>
+
+          <div class="status" id="modeStatus" style="position:absolute; top:18px; right:18px; margin-top:0;"></div>
+        </div>
+
+        <div class="card topRowCard" id="scheduleCard" style="padding-bottom:12px; display:flex; flex-direction:column;">
+
+ 
+          <div style="position:relative; margin-bottom:10px; min-height:32px;">
+  <!-- Left title stays left -->
+  <h2 style="margin:0;">Schedule</h2>
+
+  <!-- Centered profile controls (does NOT affect the title) -->
+  <div style="position:absolute; left:50%; top:0; transform:translateX(-50%); display:flex; align-items:center; gap:10px;">
+    <button
+      id="profilePrevBtn"
+      class="secondary"
+      type="button"
+      style="width:34px; height:26px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:10px; font-size:14px;"
+      title="Previous profile"
+    >
+      &lt;
+    </button>
+
+    <div
+      id="profileLabel"
+      class="muted"
+      style="font-size:12px; letter-spacing:0.2px; white-space:nowrap;"
+    >
+      Profile 1
+    </div>
+
+    <button
+      id="profileAddBtn"
+      class="secondary"
+      type="button"
+      style="width:34px; height:26px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:10px; font-size:14px;"
+      title="Add profile"
+    >
+      +
+    </button>
+  </div>
+
+  <!-- Saved/Status stays top-right -->
+  <div class="status" id="scheduleStatus" style="position:absolute; top:0; right:0; margin-top:0;"></div>
+</div>
+
+          <div class="inline">
+  <!-- LEFT COLUMN (Days + Save/Clear) -->
+  <div style="max-width:360px;">
+    <label>Days</label>
+
+    <div id="dayButtons" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;">
+      <button class="secondary day-btn" data-day="ALL">All</button>
+      <button class="secondary day-btn" data-day="Mon">Mon</button>
+      <button class="secondary day-btn" data-day="Tue">Tue</button>
+      <button class="secondary day-btn" data-day="Wed">Wed</button>
+      <button class="secondary day-btn" data-day="Thu">Thu</button>
+      <button class="secondary day-btn" data-day="Fri">Fri</button>
+      <button class="secondary day-btn" data-day="Sat">Sat</button>
+      <button class="secondary day-btn" data-day="Sun">Sun</button>
+    </div>
+
+    <input id="days" style="display:none" />
+  </div>
+
+  <!-- RIGHT COLUMN (Times) -->
+<div>
+    <label>Time(s)</label>
+
+    <!-- Hidden value that the backend already expects (comma-separated) -->
+    <input id="time" style="display:none" />
+
+    <div class="inline" style="gap:10px; align-items:center;">
+      <input id="timePicker" type="time" step="60" style="flex:1;" />
+
+      <div style="display:flex; gap:10px;">
+        <button
+          class="secondary"
+          id="timePickerBtn"
+          type="button"
+          style="width:44px; height:36px; padding:0; display:flex; align-items:center; justify-content:center;"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 7v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <button class="secondary" id="addTimeBtn" type="button">+</button>
+      </div>
+    </div>
+
+    <div id="timeChips" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;"></div>
+  </div>
+</div>
+
+<div id="scheduleBottom" style="margin-top:24px;">
+  <div style="display:flex; gap:10px;">
+    <button
+      id="saveScheduleBtn"
+      class="primary"
+      style="flex:1.15; font-size:12px; padding:8px 10px; white-space:nowrap;"
+    >
+      Save Schedule
+    </button>
+
+    <button
+      id="clearScheduleBtn"
+      class="secondary"
+      style="flex:1; font-size:12px; padding:8px 10px; white-space:nowrap;"
+    >
+      Clear Schedule
+    </button>
+
+<button
+  id="deleteProfileBtn"
+  type="button"
+  class="secondary"
+  style="flex:0.23; font-size:18px; padding:8px 10px; white-space:nowrap; background:#ef4444; color:white; display:none; align-items:center; justify-content:center; line-height:1;"
+  title="Delete this profile"
+>
+  🗑
+</button>
+
+
+  </div>
+
+  <div class="muted" id="scheduleLiveText" style="margin-top:10px;"></div>
+  <div class="muted" id="lastPostText" style="margin-top:6px;"></div>
+</div>
+
+        </div>
+
+      </div>
+
+      <div class="row bottomRow" style="margin-top:14px;">
+        <div class="card" id="topicsCard">
+          <h2>Topics</h2>
+
+          <div class="actions-row" style="margin-bottom:10px;">
+            <input id="newTopic" placeholder="Add a new topic..." />
+            <button onclick="addTopic()">Add</button>
+          </div>
+
+        <div class="muted" style="margin-bottom:8px;">
+  <span id="queueTab" style="cursor:pointer; text-decoration:underline; font-weight:700;">Queue</span>:
+  <strong id="topicsCount">—</strong>
+  •
+  <span id="archivedTab" style="cursor:pointer;">Archived</span>:
+  <strong id="archiveCount">—</strong>
+</div>
+
+          <ol class="topics topic-scroll" id="topicList"></ol>
+
+        </div>
+
+        <div class="card" id="actionsCard">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+  <h2>Actions</h2>
+</div>
+                    <div class="actions-row" style="margin-bottom:10px;">
+            <div class="pill">
+              <span class="dot ok" id="postNowDot"></span>
+              <span>Post:</span>
+              <strong id="postNowText">Ready to Post</strong>
+            </div>
+            <button id="postNowBtn" onclick="postNow()">Post Now</button>
+          </div>
+<div class="actions-row" style="margin-bottom:10px;">
+  <div class="pill">
+    <span class="dot ok" id="genTopicsDot"></span>
+    <span>Topics:</span>
+    <strong id="genTopicsText">Ready</strong>
+  </div>
+ <button id="genTopicsBtn" type="button" onclick="generateTopicsNow()">Generate Topics</button>
+</div>
+	  <div class="actions-row" style="margin-bottom:10px;">
+            <div class="pill">
+              <span class="dot" id="modeDot"></span>
+              <span>Publishing Mode:</span>
+              <strong id="modeText">—</strong>
+            </div>
+            <button class="secondary" onclick="toggleMode()">Toggle</button>
+          </div>
+	  <div class="status" id="topicStatus"></div>
+          <div class="actions-row" style="margin-bottom:10px;">
+  <div class="pill">
+    <span class="dot ok" id="clearQueueDot"></span>
+    <span>Queue:</span>
+    <strong id="clearQueueText">Ready</strong>
+  </div>
+  <button class="secondary" id="clearQueueBtn" type="button" onclick="clearQueue()">Clear Queue</button>
+</div>
+
+<div class="actions-row" style="margin-bottom:10px;">
+  <div class="pill">
+    <span class="dot ok" id="clearArchiveDot"></span>
+    <span>Archive:</span>
+    <strong id="clearArchiveText">Ready</strong>
+  </div>
+  <button class="secondary" id="clearArchiveBtn" type="button" onclick="clearArchive()">Clear Archive</button>
+</div>
+          </div>
+        </div>
+      </div>
+    </div>
+<!-- Confirm Modal (hidden by default) -->
+<div id="confirmOverlay" style="display:none;">
+  <div id="confirmModal">
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; position:relative;">
+      <div style="font-weight:700; font-size:14px;">Confirm</div>
+      <button class="secondary" type="button" style="width:36px; height:36px; padding:0;" onclick="closeConfirm(false)">✕</button>
+    </div>
+    <div class="muted" id="confirmMessage" style="margin-bottom:14px;"></div>
+    <div style="display:flex; gap:10px; justify-content:flex-end;">
+      <button class="secondary" type="button" onclick="closeConfirm(false)">Cancel</button>
+      <button type="button" id="confirmOkBtn">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal (hidden by default) -->
+<div id="settingsOverlay" style="display:none;">
+  <div id="settingsModal">
+<div style="position:relative; display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; min-height:44px;">
+      <div style="font-weight:700; font-size:14px;">Settings</div>
+
+<!-- Centered Shopify status (stacked) -->
+<div
+  id="settingsShopifyHeader"
+  class="muted"
+  style="
+    position:absolute;
+    left:50%;
+    top:0;
+    transform:translateX(-50%);
+    text-align:center;
+    line-height:1.15;
+    font-size:12px;
+    pointer-events:none;
+  "
+>
+  <div id="settingsShopifyLine1">Shopify: —</div>
+  <div id="settingsShopifyLine2" style="opacity:0.9;">—</div>
+  <div id="settingsShopifyLine3" style="opacity:0.9;">—</div>
+</div>
+
+     <div style="display:flex; align-items:center; gap:10px;">
+
+  <!-- Wizard (open setup) -->
+  <button
+    class="secondary"
+    type="button"
+    title="Setup Wizard"
+    style="width:36px; height:36px; padding:0;"
+    onclick="openSetupWizardFromSettings()"
+  >
+   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <path d="M4 7h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+  <path d="M4 12h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+  <path d="M4 17h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+
+  <path d="M9 7v0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+  <circle cx="9" cy="7" r="2" stroke="currentColor" stroke-width="1.7"/>
+
+  <path d="M15 12v0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+  <circle cx="15" cy="12" r="2" stroke="currentColor" stroke-width="1.7"/>
+
+  <path d="M7 17v0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+  <circle cx="7" cy="17" r="2" stroke="currentColor" stroke-width="1.7"/>
+</svg>
+  </button>
+
+  <!-- System Log -->
+  <button
+    class="secondary"
+    type="button"
+    title="System Log"
+    style="width:36px; height:36px; padding:0;"
+    onclick="openSystemLog()"
+  >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 3h8l2 2v16H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+      <path d="M15 3v4h4" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+      <path d="M9 11h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+      <path d="M9 14h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+      <path d="M9 17h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+    </svg>
+  </button>
+
+  <button class="secondary" type="button" style="width:36px; height:36px; padding:0;" onclick="closeSettings()">✕</button>
+</div>
+
+    </div>
+<div class="muted" style="margin:6px 0 10px; font-weight:600;">System</div>
+
+<div class="settings-row" id="settingsTestPostRow">
+  <div class="pill">
+    <span class="dot ok"></span>
+    <span>Test Post (draft)</span>
+  </div>
+  <button class="secondary" type="button" id="settingsTestPostBtn">Send</button>
+</div>
+   <div class="settings-row" id="settingsStartupRow">
+  <div class="pill">
+    <span class="dot" id="settingsStartupDot"></span>
+    <span>Run on Startup:</span>
+    <strong id="settingsStartupText">—</strong>
+  </div>
+  <button class="secondary" type="button" id="settingsStartupToggleBtn">Toggle</button>
+</div>
+<div class="muted" style="margin:14px 0 10px; font-weight:600;">Display</div>
+<div class="settings-row" id="settingsTimeFormatRow">
+  <div class="pill">
+    <span class="dot ok" id="settingsTimeFmtDot"></span>
+    <span>Time Format:</span>
+    <strong id="settingsTimeFmtText">—</strong>
+  </div>
+  <button class="secondary" type="button" id="settingsTimeFmtToggleBtn">Toggle</button>
+</div>
+<div class="muted" style="margin:14px 0 10px; font-weight:600;">Topics</div>
+<div class="settings-row" id="settingsTopicAutoRow">
+  <div class="pill">
+    <span class="dot" id="settingsTopicAutoDot"></span>
+    <span>Auto Topic Generator:</span>
+    <strong id="settingsTopicAutoText">—</strong>
+  </div>
+  <button class="secondary" type="button" id="settingsTopicAutoToggleBtn">Toggle</button>
+</div>
+<div class="settings-row" id="settingsTopicMinRow">
+  <div class="pill">
+    <span class="dot ok" id="settingsTopicMinDot"></span>
+    <span>Topic Min:</span>
+    <strong id="settingsTopicMinText">—</strong>
+  </div>
+  <input
+    id="settingsTopicMinSlider"
+    type="range"
+    min="0"
+    max="30"
+    step="1"
+  />
+</div>
+<div class="settings-row" id="settingsTopicBatchRow">
+  <div class="pill">
+    <span class="dot ok" id="settingsTopicBatchDot"></span>
+    <span>Batch Size:</span>
+    <strong id="settingsTopicBatchText">—</strong>
+  </div>
+  <input
+    id="settingsTopicBatchSlider"
+    type="range"
+    min="1"
+    max="30"
+    step="1"
+  />
+</div>
+
+
+    </div>
+  </div>
+</div>
+
+<!-- System Log Modal (hidden by default) -->
+<div id="systemLogOverlay" style="display:none;">
+  <div id="systemLogModal">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; position:relative;">
+      <div style="font-weight:700; font-size:14px;">System Log</div>
+      <button
+        class="secondary"
+        type="button"
+        style="width:36px; height:36px; padding:0;"
+        onclick="closeSystemLog()"
+      >✕</button>
+    </div>
+
+    <div
+      id="systemLogBody"
+      class="muted"
+      style="
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+        font-size:12px;
+        line-height:1.5;
+        white-space:pre-wrap;
+        max-height:420px;
+        overflow:auto;
+        padding:12px;
+        border:1px solid var(--border);
+        border-radius:12px;
+        background:rgba(0,0,0,0.15);
+      "
+    >Loading…</div>
+  </div>
+</div>
+
+<!-- Top-right toast (single) -->
+<div
+  id="toast"
+  style="
+    display:none;
+    position:fixed;
+    top:18px;
+    right:18px;
+    z-index:99999;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,0.10);
+    background:rgba(17,24,39,0.92);
+    color:#e5e7eb;
+    font-size:12px;
+    font-weight:700;
+    max-width:420px;
+    box-shadow:0 12px 30px rgba(0,0,0,0.35);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  "
+></div>
+
+    <script>
+
+let _confirmOkHandler = null;
+let _confirmCancelHandler = null;
+
+function openConfirm(message, onOk, onCancel) {
+  const overlay = document.getElementById("confirmOverlay");
+  const msg = document.getElementById("confirmMessage");
+  const okBtn = document.getElementById("confirmOkBtn");
+
+  if (!overlay || !msg || !okBtn) return;
+
+  msg.innerText = message || "Are you sure?";
+  _confirmOkHandler = (typeof onOk === "function") ? onOk : null;
+  _confirmCancelHandler = (typeof onCancel === "function") ? onCancel : null;
+
+  okBtn.onclick = () => {
+    const fn = _confirmOkHandler;
+    closeConfirm(true);
+    if (fn) fn();
+  };
+
+  overlay.style.display = "flex";
+}
+
+let _toastTimer = null;
+
+function showToast(message) {
+  const t = document.getElementById("toast");
+  if (!t) return;
+
+  t.innerText = message || "";
+  t.style.display = "block";
+
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => {
+    t.style.display = "none";
+    t.innerText = "";
+  }, 3500);
+}
+
+// Toast helper: show a message once per key (prevents spam loops)
+function toastOnce(key, message, ttlMs = 8000) {
+  try {
+    const k = "cw_toast_once_" + String(key || "default");
+    const now = Date.now();
+    const last = Number(localStorage.getItem(k) || "0");
+
+    // if we showed it recently, skip
+    if (Number.isFinite(last) && (now - last) < Number(ttlMs)) return;
+
+    localStorage.setItem(k, String(now));
+  } catch {
+    // if storage fails, just show it (best effort)
+  }
+
+  showToast(message);
+}
+
+async function publishTestPost() {
+  // Make confirm button say "Yes" for this action (user asked Yes/Cancel)
+  const okBtn = document.getElementById("confirmOkBtn");
+  const prev = okBtn ? okBtn.innerText : null;
+  if (okBtn) okBtn.innerText = "Yes";
+
+  const ok = await confirmAsync("Publish test post?");
+  if (!ok) {
+    if (okBtn && prev != null) okBtn.innerText = prev;
+    return;
+  }
+
+  try {
+const res = await fetch("/admin/testpost", { method: "POST" });
+    if (!res.ok) {
+      showToast("Draft post failed.");
+      if (okBtn && prev != null) okBtn.innerText = prev;
+      return;
+    }
+
+    const data = await res.json().catch(() => null);
+
+    // Shopify GraphQL returns userErrors if something failed
+    const errs = data?.data?.articleCreate?.userErrors;
+    if (Array.isArray(errs) && errs.length > 0) {
+      showToast("Draft post failed.");
+    } else {
+      showToast("Draft post successful.");
+    }
+  } catch (e) {
+    showToast("Draft post failed.");
+  }
+
+  if (okBtn && prev != null) okBtn.innerText = prev;
+}
+
+// --- Setup Wizard: prefetch Target Customer during loading ---
+let _cw_prefetchedTargetCustomer = "";
+let _cw_prefetchTargetInFlight = false;
+
+async function prefetchTargetCustomerBestEffort() {
+  try {
+    if (_cw_prefetchTargetInFlight) return;
+
+    const already =
+      String(CFG?.businessContext?.target_customer || "").trim() ||
+      String(_cw_prefetchedTargetCustomer || "").trim();
+
+    if (already) return;
+
+    _cw_prefetchTargetInFlight = true;
+
+    const rr = await fetch("/admin/setup/suggest-target-customer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: false })
+    });
+
+    const jj = await rr.json().catch(() => ({}));
+
+    if (rr.ok && jj && jj.ok === true && String(jj.target_customer || "").trim()) {
+      _cw_prefetchedTargetCustomer = String(jj.target_customer).trim();
+      try {
+        if (CFG && CFG.businessContext) CFG.businessContext.target_customer = _cw_prefetchedTargetCustomer;
+      } catch {}
+
+      const el = document.getElementById("setupTargetCustomer");
+      if (el && !String(el.value || "").trim()) el.value = _cw_prefetchedTargetCustomer;
+    }
+  } catch {
+    // best-effort only
+  } finally {
+    _cw_prefetchTargetInFlight = false;
+  }
+}
+
+function showSetupLoadingScreen() {
+  const s0 = document.getElementById("setupStep0");
+  const s1 = document.getElementById("setupStep1");
+  const s1c = document.getElementById("setupStep1Choice");
+  const s2 = document.getElementById("setupStep2");
+  const s3 = document.getElementById("setupStep3");
+  const s4 = document.getElementById("setupStep4");
+  const s5 = document.getElementById("setupStep5");
+  const s6 = document.getElementById("setupStep6");
+  const s7 = document.getElementById("setupStep7");
+  const sl = document.getElementById("setupStepLoading");
+
+  if (s0) s0.style.display = "none";
+  if (s1) s1.style.display = "none";
+  if (s1c) s1c.style.display = "none";
+  if (s2) s2.style.display = "none";
+  if (s3) s3.style.display = "none";
+  if (s4) s4.style.display = "none";
+  if (s5) s5.style.display = "none";
+  if (s6) s6.style.display = "none";
+  if (s7) s7.style.display = "none";
+
+  if (sl) sl.style.display = "block";
+
+  // Reset bar
+  const bar = document.getElementById("setupLoadBar");
+  const txt = document.getElementById("setupLoadText");
+  if (bar) bar.style.width = "0%";
+  if (txt) txt.innerText = "Autofilling…";
+}
+
+function truncateSummaryText(s, maxChars) {
+  const t = String(s || "").trim();
+  if (!t) return "—";
+  if (t.length <= maxChars) return t;
+  return t.slice(0, Math.max(0, maxChars - 3)).trimEnd() + "...";
+}
+
+function renderSetupStep(step) {
+  const s0 = document.getElementById("setupStep0");
+  const s1 = document.getElementById("setupStep1");
+  const s1c = document.getElementById("setupStep1Choice");
+  const s2 = document.getElementById("setupStep2");
+  const s3 = document.getElementById("setupStep3");
+  const s4 = document.getElementById("setupStep4");
+  const s5 = document.getElementById("setupStep5");
+  const s6 = document.getElementById("setupStep6");
+  const s7 = document.getElementById("setupStep7");
+const sl = document.getElementById("setupStepLoading");
+
+  // Hide all
+  if (s0) s0.style.display = "none";
+  if (s1) s1.style.display = "none";
+  if (s1c) s1c.style.display = "none";
+  if (s2) s2.style.display = "none";
+  if (s3) s3.style.display = "none";
+  if (s4) s4.style.display = "none";
+  if (s5) s5.style.display = "none";
+  if (s6) s6.style.display = "none";
+  if (s7) s7.style.display = "none";
+if (sl) sl.style.display = "none";
+
+
+  // Show the active step
+  if (step === 0 && s0) s0.style.display = "block";
+  if (step === 1) {
+    const choice = localStorage.getItem("cw_setup_autofill_choice"); // "1" or "0" or null
+    if (choice === null) {
+      if (s1c) s1c.style.display = "block";   // show choice first
+      if (s1)  s1.style.display = "none";
+    } else {
+      if (s1c) s1c.style.display = "none";
+      if (s1)  s1.style.display = "block";    // then show business name
+    }
+  }
+  if (step === 2 && s2) s2.style.display = "block";
+  if (step === 3 && s3) s3.style.display = "block";
+  if (step === 4 && s4) s4.style.display = "block";
+  if (step === 5 && s5) s5.style.display = "block";
+  if (step === 6 && s6) s6.style.display = "block";
+  if (step === 7 && s7) s7.style.display = "block";
+
+// Repopulate inputs from saved config whenever a step is shown
+const bc = CFG?.businessContext || {};
+
+if (step === 1) {
+  const el = document.getElementById("setupBusinessName");
+  if (el && !String(el.value || "").trim()) el.value = bc.business_name || "";
+
+}
+
+if (step === 2) {
+  const el = document.getElementById("setupIndustry");
+  if (el) el.value = bc.industry || "";
+}
+
+if (step === 3) {
+  const el = document.getElementById("setupProducts");
+  // backend may store products_raw
+  if (el) el.value = (bc.products || bc.products_raw || "");
+  const ex = document.getElementById("setupExcludedTopics");
+  if (ex) ex.value = (Array.isArray(CFG?.excludedTopics) ? CFG.excludedTopics.join(", ") : "");
+}
+
+if (step === 4) {
+  const el = document.getElementById("setupTargetCustomer");
+  if (el) el.value = (bc.target_customer || _cw_prefetchedTargetCustomer || "");
+}
+
+if (step === 5) {
+  const t = document.getElementById("goalTraffic");
+  const s = document.getElementById("goalSales");
+  const a = document.getElementById("goalAuthority");
+  if (t) t.checked = bc.goals?.traffic !== false;     // default true
+  if (s) s.checked = bc.goals?.sales !== false;       // default true
+  if (a) a.checked = bc.goals?.authority !== false;   // default true
+  // Repopulate excluded topics from config
+  try {
+    const arr = (Array.isArray(CFG?.excludedTopics) ? CFG.excludedTopics : []);
+    if (typeof setupExcludedTopics !== "undefined") setupExcludedTopics = arr.slice();
+
+    const ex = document.getElementById("setupExcludeInput");
+    if (ex) ex.value = "";
+
+    if (typeof renderExcludedChips === "function") renderExcludedChips();
+  } catch {}
+
+}
+
+if (step === 6) {
+  const el = document.getElementById("setupTone");
+  if (el) el.value = bc.tone || "friendly";
+}
+
+// Populate review step when entering Step 7
+if (step === 7 && CFG?.businessContext) {
+  const bc = CFG.businessContext;
+
+  const goals = [];
+  if (bc.goals?.traffic) goals.push("Traffic");
+  if (bc.goals?.sales) goals.push("Sales");
+  if (bc.goals?.authority) goals.push("Authority");
+
+  const set = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.innerText = val || "—";
+  };
+
+  set("reviewBusinessName", bc.business_name);
+  set("reviewIndustry", bc.industry);
+set("reviewProducts", truncateSummaryText((bc.products || bc.products_raw), 280));
+  set("reviewTargetCustomer", bc.target_customer);
+  set("reviewGoals", goals.join(", "));
+  set("reviewTone", bc.tone);
+
+  const excluded =
+    (Array.isArray(CFG?.excludedTopics) && CFG.excludedTopics.length)
+      ? CFG.excludedTopics.join(", ")
+      : "—";
+
+  set("reviewExcludedTopics", excluded);
+
+}
+
+}
+
+function showSetupWelcome() {
+  // Title / welcome page is UI-only
+  renderSetupStep(0);
+
+  const stepLabel = document.getElementById("setupStepLabel");
+  if (stepLabel) stepLabel.innerText = "";
+
+  // Mark "not started" so refreshUI will keep showing the title page
+  localStorage.setItem("cw_setup_started", "0");
+}
+
+function setupBegin() {
+  // User explicitly started the wizard
+  localStorage.setItem("cw_setup_started", "1");
+
+  fetch("/admin/setup/begin", { method: "POST" })
+    .then(() => refreshUI())
+    .catch(() => showToast("Failed to begin setup"));
+}
+
+function setupChooseAutofill(useAutofill) {
+  // Persist choice for this browser
+  localStorage.setItem("cw_setup_autofill_choice", useAutofill ? "1" : "0");
+
+  // Allow autofill to run for the current step again
+  _cw_shopifyAutofillLastStep = null;
+
+  // If they chose autofill, try immediately on the current step
+  if (useAutofill) {
+    try {
+      // run in a microtask so the UI has time to render
+      setTimeout(() => {
+        try { maybeAutofillSetupFromShopify(CFG); } catch {}
+      }, 0);
+    } catch {}
+  }
+
+  // Re-render Step 1 so it switches from Choice -> Business Name
+  if (useAutofill) {
+  // Show loading screen for ~5 seconds
+  showSetupLoadingScreen();
+
+  // Kick off target-customer prefetch in the background
+  try { prefetchTargetCustomerBestEffort(); } catch {}
+
+  // Also try Shopify autofill immediately (best-effort)
+  try {
+    setTimeout(() => {
+      try { maybeAutofillSetupFromShopify(CFG); } catch {}
+    }, 0);
+  } catch {}
+
+  // Animate bar -> 100% then move to Step 1
+  const bar = document.getElementById("setupLoadBar");
+  const txt = document.getElementById("setupLoadText");
+
+  const start = Date.now();
+  const dur = 5000;
+
+  const timer = setInterval(() => {
+    const p = Math.min(1, (Date.now() - start) / dur);
+    const pct = Math.floor(p * 100);
+
+    if (bar) bar.style.width = pct + "%";
+    if (txt) txt.innerText = (pct < 100) ? `Loading… ${pct}%` : "Done.";
+
+    if (p >= 1) {
+      clearInterval(timer);
+      renderSetupStep(1); // choice already saved, so this will show Business Name screen
+try { maybeAutofillSetupFromShopify(CFG); } catch {}
+// done
+    }
+  }, 60);
+
+} else {
+  // Manual path: go straight to Step 1 business name
+  renderSetupStep(1);
+}
+
+  showToast(useAutofill ? "Autofill selected" : "Manual selected");
+}
+
+function setupStartShopifyOAuthFromWizard() {
+  const input = document.getElementById("setupShopifyDomain");
+  const shop = String(input ? input.value : "").trim();
+
+  if (!shop) {
+    showToast("Enter your Shopify domain.");
+    return;
+  }
+
+  // Start OAuth (backend route already exists)
+  window.location.href = `/admin/shopify/oauth/start?shop=${encodeURIComponent(shop)}`;
+}
+
+function restartSetup() {
+  confirmAsync("Restart setup? This clears what you entered.")
+    .then((ok) => {
+      if (!ok) return;
+
+      // IMPORTANT: allow Shopify autofill to run again after restart
+try { _cw_shopifyAutofillLastStep = null; } catch {}
+try { localStorage.removeItem("cw_setup_autofill_choice"); } catch {}
+
+      // Treat restart as "not started" until user begins again
+      try { localStorage.setItem("cw_setup_started", "0"); } catch {}
+
+      // Clear excluded topics UI (local state + input)
+      try {
+        if (typeof setupExcludedTopics !== "undefined") setupExcludedTopics = [];
+
+        const ex = document.getElementById("setupExcludedTopics");
+        if (ex) ex.value = "";
+
+        if (typeof renderSetupExcludedList === "function") renderSetupExcludedList();
+      } catch {}
+
+      return fetch("/admin/setup/restart", { method: "POST" })
+        .then(() => refreshUI())
+        .catch(() => showToast("Failed to restart setup"));
+    });
+}
+
+function finishSetup() {
+  fetch("/admin/setup/finish", { method: "POST" })
+    .then(async (res) => {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok !== true) {
+        showToast("Finish error: " + (data.error || "Unknown error"));
+        return;
+      }
+      showToast("Setup complete.");
+      localStorage.removeItem("cw_setup_force");
+      await refreshUI();
+    })
+    .catch(() => showToast("Finish error: failed"));
+}
+
+function setupBack() {
+  const step = Number(CFG?.businessContext?.setupStep ?? 1);
+
+  // Allow Step 1 -> Step 0 (title page)
+  if (step <= 1) {
+    showSetupWelcome();
+    return;
+  }
+
+  fetch("/admin/setup/back", { method: "POST" })
+    .then(() => refreshUI())
+    .catch(() => showToast("Failed to go back"));
+}
+
+async function setupNext() {
+  const step = CFG?.businessContext?.setupStep || 1;
+
+  try {
+    // STEP 1 → save business_name
+    if (step === 1) {
+      const el = document.getElementById("setupBusinessName");
+      const name = (el ? el.value : "").trim();
+      if (!name) {
+	showToast("Business name is required.");
+        return;
+      }
+
+      const res = await fetch("/admin/setup/step1", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ business_name: name })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok !== true) {
+        showToast("Setup error: " + (data.error || "Unknown error"));
+        return;
+      }
+    }
+
+    // STEP 2 → save industry
+    if (step === 2) {
+      const el = document.getElementById("setupIndustry");
+      const industry = (el ? el.value : "").trim();
+      if (!industry) {
+	showToast("Industry is required.");
+        return;
+      }
+
+      const res = await fetch("/admin/setup/step2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ industry })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok !== true) {
+        showToast("Setup error: " + (data.error || "Unknown error"));
+        return;
+      }
+    }
+
+    // STEP 3 → save products/services
+    if (step === 3) {
+      const el = document.getElementById("setupProducts");
+      const products = (el ? el.value : "").trim();
+      if (!products) {
+        showToast("Products / Services is required.");
+        return;
+      }
+
+      const res = await fetch("/admin/setup/step3", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+    products,
+    excludedTopics: String(document.getElementById("setupExcludedTopics")?.value || "")
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean)
+      .slice(0, 100)
+  })
+
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok !== true) {
+        showToast("Setup error: " + (data.error || "Unknown error"));
+        return;
+      }
+    }
+
+    // STEP 4 → save target customer
+    if (step === 4) {
+      const el = document.getElementById("setupTargetCustomer");
+      const target_customer = (el ? el.value : "").trim();
+      if (!target_customer) {
+        showToast("Target customer is required.");
+        return;
+      }
+
+      const res = await fetch("/admin/setup/step4", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_customer })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok !== true) {
+        showToast("Setup error: " + (data.error || "Unknown error"));
+        return;
+      }
+    }
+
+    // STEP 5 → save content goals
+    if (step === 5) {
+      const t = document.getElementById("goalTraffic");
+      const s = document.getElementById("goalSales");
+      const a = document.getElementById("goalAuthority");
+
+      const goals = {
+        traffic: !!(t && t.checked),
+        sales: !!(s && s.checked),
+        authority: !!(a && a.checked)
+      };
+
+      const res = await fetch("/admin/setup/step5", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goals })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok !== true) {
+        showToast("Setup error: " + (data.error || "Unknown error"));
+        return;
+      }
+    }
+
+    // STEP 6 → save posting tone
+    if (step === 6) {
+      const el = document.getElementById("setupTone");
+      const tone = (el ? el.value : "").trim();
+      if (!tone) {
+        showToast("Tone is required.");
+        return;
+      }
+
+      const res = await fetch("/admin/setup/step6", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tone })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok !== true) {
+        showToast("Setup error: " + (data.error || "Unknown error"));
+        return;
+      }
+    }
+
+    showToast("Saved.");
+    await refreshUI();
+  } catch (e) {
+    showToast("Setup error: " + String(e || "Unknown error"));
+  }
+}
+    
+
+function closeConfirm(isOk) {
+  const overlay = document.getElementById("confirmOverlay");
+  if (!overlay) return;
+  overlay.style.display = "none";
+
+  const cancelFn = _confirmCancelHandler;
+  _confirmOkHandler = null;
+  _confirmCancelHandler = null;
+
+  if (!isOk && cancelFn) cancelFn();
+}
+
+function confirmAsync(message) {
+  return new Promise((resolve) => {
+    openConfirm(
+      message,
+      () => resolve(true),
+      () => resolve(false)
+    );
+  });
+}
+
+async function refreshShopifyStatus() {
+  // Small status (dot + text)
+  const dot = document.getElementById("settingsShopifyDot");
+  const txt = document.getElementById("settingsShopifyText");
+
+  // Settings modal title (3-line header)
+  const line1 = document.getElementById("settingsShopifyLine1");
+  const line2 = document.getElementById("settingsShopifyLine2");
+  const line3 = document.getElementById("settingsShopifyLine3");
+
+  // Safe defaults (honest)
+  if (txt) txt.textContent = "Checking…";
+  if (dot) dot.className = "dot";
+
+  if (line1) line1.textContent = "Shopify: Checking…";
+  if (line2) line2.textContent = "—";
+  if (line3) line3.textContent = "—";
+
+  try {
+    const res = await fetch("/admin/shopify/context");
+    const data = await res.json().catch(() => ({}));
+
+    // Hard error
+    if (!res.ok || data.ok !== true) {
+      if (txt) txt.textContent = "Error";
+      if (dot) dot.className = "dot err";
+
+      if (line1) line1.textContent = "Shopify: Error";
+      if (line2) line2.textContent = "—";
+      if (line3) line3.textContent = "—";
+      return;
+    }
+
+    // Connected
+    if (data.connected === true) {
+      if (txt) txt.textContent = "Connected";
+      if (dot) dot.className = "dot ok";
+
+      if (line1) line1.textContent = "Shopify: Connected";
+
+      const shop = data?.context?.shop || {};
+      const name = shop.name || "—";
+      const domain = shop.domain || "—";
+
+      if (line2) line2.textContent = name;
+      if (line3) line3.textContent = domain;
+      return;
+    }
+
+    // Not connected
+    if (txt) txt.textContent = "Not connected";
+    if (dot) dot.className = "dot";
+
+    if (line1) line1.textContent = "Shopify: Not connected";
+    if (line2) line2.textContent = "—";
+    if (line3) line3.textContent = "—";
+  } catch (e) {
+    if (txt) txt.textContent = "Error";
+    if (dot) dot.className = "dot err";
+
+    if (line1) line1.textContent = "Shopify: Error";
+    if (line2) line2.textContent = "—";
+    if (line3) line3.textContent = "—";
+  }
+}
+
+async function openAccountOAuth() {
+  try {
+    const res = await fetch("/admin/shopify/context");
+    const data = await res.json().catch(() => ({}));
+    const connected = (res.ok && data && data.ok === true && data.connected === true);
+
+    // If connected → log out (disconnect)
+    if (connected) {
+      const ok = await confirmAsync("Log out of Shopify?");
+      if (!ok) return;
+
+      const r = await fetch("/admin/shopify/disconnect", { method: "POST" });
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok || j.ok !== true) {
+        showToast(j.error || "Logout failed");
+        return;
+      }
+
+      showToast("Logged out.");
+      await refreshShopifyStatus();
+      return;
+    }
+
+    // Not connected → start OAuth
+    const shop = prompt("Shop domain (example: your-store.myshopify.com)");
+    if (!shop) return;
+
+    window.location.href = `/admin/shopify/oauth/start?shop=${encodeURIComponent(shop.trim())}`;
+  } catch (e) {
+    showToast("Account error: " + String(e || "Unknown error"));
+  }
+}
+
+async function openAccount() {
+  try {
+    const res = await fetch("/admin/shopify/context");
+    const data = await res.json().catch(() => ({}));
+
+    const connected = (res.ok && data && data.ok === true && data.connected === true);
+
+    // If connected → confirm logout
+    if (connected) {
+      const ok = await confirmAsync("Log out of Shopify?");
+      if (!ok) return;
+
+      const r = await fetch("/admin/shopify/disconnect", { method: "POST" });
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok || j.ok !== true) {
+        showToast(j.error || "Logout failed");
+        return;
+      }
+
+      showToast("Logged out.");
+      await refreshShopifyStatus();
+      if (typeof refreshUI === "function") await refreshUI();
+      return;
+    }
+
+    // If not connected → prompt for manual connect (Option A)
+    const shopDomain = prompt("Shopify store domain (example: your-store.myshopify.com)");
+    if (!shopDomain) return;
+
+    const accessToken = prompt("Shopify Admin API access token (shpat_...)");
+    if (!accessToken) return;
+
+    const r = await fetch("/admin/shopify/connect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shopDomain, accessToken })
+    });
+
+    const j = await r.json().catch(() => ({}));
+
+    if (!r.ok || j.ok !== true) {
+      showToast(j.error || "Connect failed");
+      return;
+    }
+
+    showToast("Shopify connected.");
+    await refreshShopifyStatus();
+    if (typeof refreshUI === "function") await refreshUI();
+  } catch (e) {
+    showToast("Account error: " + String(e || "Unknown error"));
+  }
+}
+
+function openSettings() {
+  const overlay = document.getElementById("settingsOverlay");
+  if (!overlay) return;
+  overlay.style.display = "flex";
+  wireSettingsButtonsOnce();
+
+  refreshShopifyStatus();
+}
+
+function wireSettingsButtonsOnce() {
+  // Always (re)bind button actions every time Settings opens.
+  // Using .onclick overwrites safely, so no duplicates.
+
+  const startupBtn = document.getElementById("settingsStartupToggleBtn");
+  const timeFmtBtn = document.getElementById("settingsTimeFmtToggleBtn");
+
+  if (startupBtn) startupBtn.onclick = () => toggleStartup();
+  if (timeFmtBtn) timeFmtBtn.onclick = () => toggleTimeFormat();
+
+const testPostBtn = document.getElementById("settingsTestPostBtn");
+if (testPostBtn) testPostBtn.onclick = () => sendTestPostDraft();
+
+const topicAutoBtn = document.getElementById("settingsTopicAutoToggleBtn");
+if (topicAutoBtn) topicAutoBtn.onclick = () => toggleTopicAuto();
+
+  // Sliders: live-update the number + autosave when you let go
+  const minSlider = document.getElementById("settingsTopicMinSlider");
+  const batchSlider = document.getElementById("settingsTopicBatchSlider");
+
+  const minText = document.getElementById("settingsTopicMinText");
+  const batchText = document.getElementById("settingsTopicBatchText");
+
+  if (minSlider) {
+    minSlider.oninput = () => { if (minText) minText.innerText = String(minSlider.value); };
+    minSlider.onchange = () => saveTopicGenSettings();
+  }
+
+  if (batchSlider) {
+    batchSlider.oninput = () => { if (batchText) batchText.innerText = String(batchSlider.value); };
+    batchSlider.onchange = () => saveTopicGenSettings();
+  }
+}
+
+function closeSettings() {
+  const overlay = document.getElementById("settingsOverlay");
+  if (!overlay) return;
+  overlay.style.display = "none";
+}
+
+async function openSystemLog() {
+  const o = document.getElementById("systemLogOverlay");
+  const body = document.getElementById("systemLogBody");
+  if (o) o.style.display = "flex";
+  if (body) body.textContent = "Loading…";
+
+  try {
+    const res = await fetch("/admin/system-log");
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data.ok !== true) {
+      if (body) body.textContent = "Error loading system log.";
+      return;
+    }
+
+    const lines = Array.isArray(data.lines) ? data.lines : [];
+    if (!lines.length) {
+      if (body) body.textContent = "—";
+      return;
+    }
+
+    // Show newest first
+   const out = lines
+  .slice()
+  .reverse()
+  .map((ln) => {
+    try {
+      const obj = JSON.parse(ln);
+      const t = obj.ts ? new Date(obj.ts).toLocaleString() : "—";
+      const type = obj.type || "event";
+      const reason = obj.reason ? ` (${obj.reason})` : "";
+      return `${t}  •  ${type}${reason}`;
+    } catch {
+      return ln; // fallback if a line isn't valid JSON
+    }
+  })
+  .join("\n");
+    if (body) body.textContent = out;
+  } catch (e) {
+    if (body) body.textContent = "Error loading system log.";
+  }
+}
+
+function closeSystemLog() {
+  const o = document.getElementById("systemLogOverlay");
+  if (o) o.style.display = "none";
+}
+
+function openSetupWizardFromSettings() {
+  // Force-open the setup overlay even if setup is already complete
+  localStorage.setItem("cw_setup_force", "1");
+
+  // Show the title page when opening from Settings
+  localStorage.setItem("cw_setup_started", "0");
+
+  // Close settings modal so the overlay is clickable
+  closeSettings();
+
+  // Re-render UI
+  refreshUI();
+}
+
+// --- Setup Wizard: Excluded Topics (UI only) ---
+let setupExcludedTopics = [];
+
+function renderSetupExcludedList() {
+  const el = document.getElementById("setupExcludedList");
+  if (!el) return;
+
+  if (!setupExcludedTopics.length) {
+    el.innerText = "—";
+    return;
+  }
+
+  // Simple, honest display (one per line)
+  el.innerHTML = setupExcludedTopics
+    .map(t => `<div style="margin-bottom:4px;">• ${escapeHtml(t)}</div>`)
+    .join("");
+}
+
+function setupAddExcludedTopic() {
+  const input = document.getElementById("setupExcludedInput");
+  if (!input) return;
+
+  const raw = String(input.value || "").trim();
+  if (!raw) return;
+
+  // normalize and de-dupe (case-insensitive)
+  const norm = raw.toLowerCase();
+  const exists = setupExcludedTopics.some(x => String(x).toLowerCase() === norm);
+  if (exists) {
+    input.value = "";
+    return;
+  }
+
+  setupExcludedTopics.push(raw);
+  input.value = "";
+  renderSetupExcludedList();
+}
+
+            async function fetchJsonWithTimeout(url, opts = {}, timeoutMs = 2500) {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), timeoutMs);
+
+        try {
+          const res = await fetch(url, { ...opts, signal: ctrl.signal });
+          // If server replies but not JSON, this will throw and be handled below
+          const data = await res.json();
+          return { ok: true, data };
+        } catch {
+          return { ok: false, data: null };
+        } finally {
+          clearTimeout(t);
+        }
+      }
+
+      async function getConfig() {
+        const r = await fetchJsonWithTimeout("/admin/config");
+        if (!r.ok) return { ok: false, cfg: null };
+        return r.data;
+      }
+// ---- Schedule unsaved-changes guard ----
+let scheduleDirty = false;
+
+// v0.2 profiles (local copy; saved only when user clicks Save Schedule)
+let schedulesLocal = [];
+
+// which profile is currently being edited (0 = Profile 1)
+let scheduleProfileIndex = 0;
+
+function markScheduleDirty() {
+  scheduleDirty = true;
+}
+
+function clearScheduleDirty() {
+  scheduleDirty = false;
+}
+
+// Browser-native “Leave site?” prompt (text is controlled by the browser)
+window.addEventListener("beforeunload", (e) => {
+  if (!scheduleDirty) return;
+  e.preventDefault();
+  e.returnValue = "";
+});
+
+      function setModeUI(mode) {
+  const textEl = document.getElementById("modeText");
+  const dot = document.getElementById("modeDot");
+
+  if (!mode) {
+    textEl.innerText = "—";
+    dot.className = "dot";
+    return;
+  }
+
+  const normalized = mode.toLowerCase();
+
+  textEl.innerText =
+    normalized.charAt(0).toUpperCase() + normalized.slice(1);
+
+  if (normalized === "draft") {
+    dot.className = "dot bad";   // RED
+  } else if (normalized === "live") {
+    dot.className = "dot ok";    // GREEN
+  } else {
+    dot.className = "dot";       // neutral fallback
+  }
+}
+
+      function setHeaderRobotPill(enabled) {
+        const text = document.getElementById("robotStatusText");
+        const dot = document.getElementById("robotStatusDot");
+
+        if (enabled === false) {
+          text.innerText = "Offline";
+          dot.className = "dot bad";
+        } else {
+          text.innerText = "Online";
+          dot.className = "dot ok";
+        }
+      }
+
+function applyRobotPillGlow({ serverReachable, robotEnabled }) {
+  const pill = document.getElementById("robotStatus");
+  if (!pill) return;
+
+  // If server is unreachable → yellow glow (disconnect reason)
+  if (serverReachable === false) {
+    pill.classList.remove("offline-user");
+    pill.classList.add("offline-error");
+    return;
+  }
+
+  // Server is reachable → yellow must be removed
+  pill.classList.remove("offline-error");
+
+  // If robot is intentionally disabled → white glow
+  if (robotEnabled === false) pill.classList.add("offline-user");
+  else pill.classList.remove("offline-user");
+}
+
+      async function toggleHeaderRobot() {
+        const text = document.getElementById("robotStatusText");
+        const dot = document.getElementById("robotStatusDot");
+
+        text.innerText = "Saving...";
+        dot.className = "dot";
+
+        try {
+          const res = await fetch("/admin/toggle-robot", { method: "POST" });
+          const data = await res.json();
+
+          if (!data.ok) {
+            text.innerText = "Error";
+            dot.className = "dot bad";
+            return;
+          }
+
+          await refreshUI();
+
+        } catch {
+          text.innerText = "Error";
+          dot.className = "dot bad";
+        }
+      }
+
+      function setScheduleUI(schedule) {
+  const daysArr = (schedule?.daysOfWeek || []);
+  const timeStr = (schedule?.time || "");
+
+  // Keep hidden inputs populated so existing save logic keeps working
+  const daysEl = document.getElementById("days");
+  const timeEl = document.getElementById("time");
+
+  if (daysEl) daysEl.value = daysArr.join(", ");
+  if (timeEl) timeEl.value = timeStr;
+
+  // Sync day buttons to saved config
+  setDayButtonsFromDays(daysArr);
+
+  // Sync time chips
+  setTimeUIFromRaw(timeStr);
+}
+
+function setDayButtonsFromDays(daysArr) {
+  const btns = Array.from(document.querySelectorAll(".day-btn"));
+  const set = new Set((daysArr || []).map(d => String(d).trim()).filter(Boolean));
+
+  btns.forEach(b => {
+    const day = b.getAttribute("data-day");
+    b.classList.toggle("selected", set.has(day));
+  });
+}
+
+function syncHiddenDaysFromButtons() {
+  const btns = Array.from(document.querySelectorAll(".day-btn"));
+  const selected = btns
+    .filter(b => b.classList.contains("selected"))
+    .map(b => b.getAttribute("data-day"));
+
+  // This is what saveSchedule() already reads
+  const hidden = document.getElementById("days");
+  if (hidden) hidden.value = selected.join(", ");
+}
+
+function initDayButtons() {
+  const btns = Array.from(document.querySelectorAll(".day-btn"));
+  const allBtn = btns.find(b => (b.getAttribute("data-day") || "") === "ALL");
+  const dayBtns = btns.filter(b => (b.getAttribute("data-day") || "") !== "ALL");
+
+  // Click handling
+  btns.forEach(b => {
+    b.addEventListener("click", () => {
+      const day = (b.getAttribute("data-day") || "").trim();
+
+      // Special: ALL
+      if (day === "ALL") {
+        // ALL itself must NOT stay selected
+        if (allBtn) allBtn.classList.remove("selected");
+
+        // Select every real day button
+        dayBtns.forEach(d => d.classList.add("selected"));
+
+        // Sync hidden input
+        syncHiddenDaysFromButtons();
+markScheduleDirty();
+        return;
+      }
+
+      // Normal day toggle
+      b.classList.toggle("selected");
+
+      // If any day changes, ensure ALL is not selected
+      if (allBtn) allBtn.classList.remove("selected");
+
+      // Sync hidden input
+      syncHiddenDaysFromButtons();
+    });
+
+    // Visual: make ALL only appear "pressed" while mouse is down
+    const day = (b.getAttribute("data-day") || "").trim();
+    if (day === "ALL") {
+      b.addEventListener("mousedown", () => b.classList.add("selected"));
+      b.addEventListener("mouseup",   () => b.classList.remove("selected"));
+      b.addEventListener("mouseleave",() => b.classList.remove("selected"));
+    }
+  });
+
+  // Initial sync
+  syncHiddenDaysFromButtons();
+}
+
+function normalizeTimeStr(s) {
+  const m = String(s || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const hh = String(Number(m[1])).padStart(2, "0");
+  const mm = String(Number(m[2])).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function getTimesFromHidden() {
+  const hidden = document.getElementById("time");
+  const raw = hidden ? String(hidden.value || "") : "";
+  return raw
+    .split(",")
+    .map(t => normalizeTimeStr(t))
+    .filter(Boolean);
+}
+
+function setHiddenFromTimes(times) {
+  const hidden = document.getElementById("time");
+  if (!hidden) return;
+  hidden.value = (times || []).join(", ");
+}
+
+function renderTimeChips(times) {
+  const box = document.getElementById("timeChips");
+  if (!box) return;
+
+  // 3 chips per row
+  box.style.display = "grid";
+  box.style.gridTemplateColumns = "repeat(3, max-content)";
+  box.style.gap = "8px";
+  box.style.marginTop = "10px";
+  box.style.alignItems = "center";
+  box.style.justifyContent = "start";
+
+  box.innerHTML = "";
+
+  (times || []).forEach((t) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "secondary";
+
+    // smaller, tighter chip
+    chip.style.padding = "4px 8px";
+    chip.style.borderRadius = "999px";
+    chip.style.fontSize = "12px";
+    chip.style.lineHeight = "1";
+    chip.style.whiteSpace = "nowrap";
+
+    const disp = formatHHMM(t);
+
+
+chip.innerText = `${disp} ✕`;
+
+    chip.addEventListener("click", () => {
+      const next = getTimesFromHidden().filter(x => x !== t);
+      setHiddenFromTimes(next);
+      renderTimeChips(next);
+markScheduleDirty();
+    });
+
+    box.appendChild(chip);
+  });
+}
+
+function setTimeUIFromRaw(rawTimeString) {
+  const times = String(rawTimeString || "")
+    .split(",")
+    .map(t => normalizeTimeStr(t))
+    .filter(Boolean);
+
+  setHiddenFromTimes(times);
+  renderTimeChips(times);
+}
+
+function initTimePicker() {
+    const btn = document.getElementById("addTimeBtn");
+  const openBtn = document.getElementById("timePickerBtn");
+  const picker = document.getElementById("timePicker");
+
+  if (!btn || !picker) return;
+
+  // Clock button: open the native time picker
+  if (openBtn) {
+    openBtn.addEventListener("click", () => {
+      try {
+        // Chrome/Edge support this for <input type="time">
+        if (typeof picker.showPicker === "function") picker.showPicker();
+      } catch {}
+      // Fallbacks
+      picker.focus();
+      picker.click();
+    });
+  }
+
+  btn.addEventListener("click", async () => {
+    const t = normalizeTimeStr(picker.value);
+    if (!t) return;
+
+    const current = getTimesFromHidden();
+if (current.includes(t)) return;
+
+// Read the currently-selected days from the hidden input
+const daysRaw = document.getElementById("days") ? document.getElementById("days").value : "";
+const selectedDays = daysRaw.split(",").map(d => d.trim()).filter(Boolean);
+
+// If this time exists on another profile that shares any selected day → warn
+let conflictProfileIndex = -1;
+
+for (let i = 0; i < schedulesLocal.length; i++) {
+  if (i === scheduleProfileIndex) continue;
+
+  const p = schedulesLocal[i];
+  if (!p) continue;
+
+  const pDays = Array.isArray(p.daysOfWeek) ? p.daysOfWeek : [];
+  const pTimes = Array.isArray(p.times) ? p.times : [];
+
+  // any overlap in days?
+  const dayOverlap = selectedDays.some(d => pDays.includes(d));
+  if (dayOverlap && pTimes.includes(t)) {
+    conflictProfileIndex = i;
+    break;
+  }
+}
+
+if (conflictProfileIndex !== -1) {
+  const ok = await confirmAsync(`This time is scheduled on Profile ${conflictProfileIndex + 1}. Proceed anyway?`);
+  if (!ok) return;
+}
+
+// v0.2 rule: up to max/day (we’ll enforce 6 for now to match daily cap style)
+if (current.length >= 6) return;
+
+
+    const next = [...current, t].sort();
+    setHiddenFromTimes(next);
+    renderTimeChips(next);
+markScheduleDirty();
+    picker.value = "";
+  });
+
+  // First render (in case hidden already has values)
+  renderTimeChips(getTimesFromHidden());
+}
+
+let CFG = null; // latest config cache (set by refreshUI)
+
+      let topicsView = "queue";
+
+// Cache the latest arrays so switching views is instant
+window._lastTopics = [];
+window._lastTopicArchive = [];
+
+function setTopicsView(view) {
+  topicsView = view;
+
+  const q = document.getElementById("queueTab");
+  const a = document.getElementById("archivedTab");
+
+  if (q && a) {
+    q.style.fontWeight = (view === "queue") ? "700" : "400";
+    a.style.fontWeight = (view === "archived") ? "700" : "400";
+    q.style.textDecoration = (view === "queue") ? "underline" : "none";
+    a.style.textDecoration = (view === "archived") ? "underline" : "none";
+  }
+
+  if (view === "archived") {
+    renderTopics(window._lastTopicArchive || [], "archived");
+  } else {
+    renderTopics(window._lastTopics || [], "queue");
+  }
+}
+
+function renderTopics(items, view) {
+  const list = document.getElementById("topicList");
+  // Preserve scroll position during refresh (prevents snapping to top)
+const prevScrollTop = list.scrollTop;
+const prevScrollHeight = list.scrollHeight;
+const wasAtBottom = (prevScrollTop + list.clientHeight) >= (prevScrollHeight - 2);
+
+list.innerHTML = "";
+
+  (items || []).forEach((t, i) => {
+    const li = document.createElement("li");
+
+    const left = document.createElement("div");
+    left.className = "topicText";
+    left.innerText = t;
+
+    li.appendChild(left);
+
+    // Only show Remove button in Queue view (Archive view is read-only for now)
+    if (view !== "archived") {
+      const right = document.createElement("div");
+      right.className = "topicActions";
+
+      const btn = document.createElement("button");
+      btn.className = "secondary";
+      btn.innerText = "Remove";
+      btn.onclick = () => removeTopic(i);
+
+      right.appendChild(btn);
+      li.appendChild(right);
+    }
+
+    list.appendChild(li);
+  });
+  // Restore scroll AFTER the list has been rebuilt
+  requestAnimationFrame(() => {
+    if (wasAtBottom) {
+      list.scrollTop = list.scrollHeight;
+    } else {
+      list.scrollTop = prevScrollTop;
+    }
+  });
+}
+
+async function refreshTopicsUI() {
+  try {
+    // Pull just topics + archive (cheap) — do NOT call refreshUI() here
+    const r = await fetchJsonWithTimeout("/admin/topics");
+    if (!r.ok || !r.data || r.data.ok !== true) return;
+
+    const topics = Array.isArray(r.data.topics) ? r.data.topics : [];
+    const archive = Array.isArray(r.data.archive) ? r.data.archive : [];
+
+    // Update counters
+    const tc = document.getElementById("topicsCount");
+    const ac = document.getElementById("archiveCount");
+    if (tc) tc.innerText = String(topics.length);
+    if (ac) ac.innerText = String(archive.length);
+
+    // Cache latest arrays so tab switching stays instant
+    window._lastTopics = topics;
+    window._lastTopicArchive = archive;
+
+    // Re-render only the currently active view
+    if (topicsView === "archived") {
+      renderTopics(window._lastTopicArchive, "archived");
+    } else {
+      renderTopics(window._lastTopics, "queue");
+    }
+  } catch {
+    // silent: if the server is busy, don’t spam errors
+  }
+}
+
+function syncTopRowHeights() {
+  const scheduleCard = document.getElementById("scheduleCard");
+  const activityCard = document.getElementById("activityCard");
+  const row = document.querySelector(".topRow");
+
+  if (!scheduleCard || !activityCard || !row) return;
+
+  // Let Schedule be natural height
+  scheduleCard.style.height = "";
+
+  // Clear previous forced Activity height
+  activityCard.style.height = "";
+
+  // Make sure grid isn't stretching while we measure
+  row.style.alignItems = "start";
+  row.offsetHeight; // force reflow
+
+  // IMPORTANT: offsetHeight ignores transform: scale()
+  const h = scheduleCard.offsetHeight;
+
+  // Do not force Activity height if user is scrolling (prevents snap-to-top)
+const activityList = document.getElementById("activityList");
+const isUserScrolling =
+  activityList &&
+  activityList.scrollHeight > activityList.clientHeight &&
+  activityList.scrollTop > 0;
+
+if (!isUserScrolling) {
+  // Do not force Activity height if user is scrolling (prevents snap-to-top)
+const activityList = document.getElementById("activityList");
+const isUserScrolling =
+  activityList &&
+  activityList.scrollHeight > activityList.clientHeight &&
+  activityList.scrollTop > 0;
+
+if (!isUserScrolling) {
+  activityCard.style.height = h + "px";
+}
+
+}
+
+}
+
+function syncBottomRowHeights() {
+  const actionsCard = document.getElementById("actionsCard");
+  const topicsCard = document.getElementById("topicsCard");
+  const list = document.getElementById("topicList");
+  const row = document.querySelector(".bottomRow");
+
+  if (!actionsCard || !topicsCard || !list || !row) return;
+
+  // Clear old forced heights
+  actionsCard.style.height = "";
+  topicsCard.style.height = "";
+
+  // Measure Actions natural height (bottom row should match Actions)
+  row.style.alignItems = "start";
+  row.offsetHeight; // force reflow
+
+  const h = actionsCard.offsetHeight;
+
+  // Lock both cards to Actions height
+  actionsCard.style.height = h + "px";
+  topicsCard.style.height = h + "px";
+
+  // Keep Topics list as the scroll area
+  const bottomPadding = 34;
+  const listTopInsideCard = list.offsetTop;
+  const available = topicsCard.clientHeight - listTopInsideCard - bottomPadding;
+
+  list.style.height = Math.max(120, Math.floor(available)) + "px";
+}
+
+function syncAllHeights() {
+ // If user is scrolling Activity OR Topics, do NOT force-resize cards.
+// Card resizing resets scrollTop on the refresh loop.
+const activityList = document.getElementById("activityList");
+const topicList = document.getElementById("topicList");
+
+const activityUserScrolled =
+  activityList &&
+  activityList.scrollHeight > activityList.clientHeight &&
+  activityList.scrollTop > 0;
+
+const topicsUserScrolled =
+  topicList &&
+  topicList.scrollHeight > topicList.clientHeight &&
+  topicList.scrollTop > 0;
+
+if (activityUserScrolled || topicsUserScrolled) return;
+
+  // Run after layout settles (same pattern you already use)
+  requestAnimationFrame(() => {
+    syncTopRowHeights();
+    syncBottomRowHeights();
+    setTimeout(() => {
+      syncTopRowHeights();
+      syncBottomRowHeights();
+    }, 50);
+  });
+}
+
+// v0.4 — Shopify autopopulate (UI-only, best-effort)
+// Fills the current setup step's inputs from Shopify data, but DOES NOT save.
+let _cw_shopifyAutofillLastStep = null;
+async function maybeAutofillSetupFromShopify(cfg) {
+  const choice = localStorage.getItem("cw_setup_autofill_choice");
+  if (choice !== "1") return; // only autofill if user chose it
+
+  // Only when setup is blocking the app (wizard overlay scenario)
+  if (cfg?._postingBlocked !== true) return;
+
+  // Only after the user clicks Begin (we don't autofill the title page)
+const started =
+  (localStorage.getItem("cw_setup_started") === "1") ||
+  !!cfg.shopify?.accessToken;
+  if (!started) return;
+
+  const step = Number(cfg?.businessContext?.setupStep ?? 0);
+  if (_cw_shopifyAutofillLastStep === step) return; // already filled this step
+  if (!Number.isFinite(step) || step < 1 || step > 4) return;
+
+  // Pull Shopify context (backend route)
+  const r = await fetchJsonWithTimeout("/admin/shopify/context");
+  if (!r.ok || !r.data || r.data.ok !== true) return;
+
+  if (r.data.connected !== true) return;
+
+const ctx = r.data.context || {};
+const shop = ctx.shop || {};
+const products = Array.isArray(ctx.products) ? ctx.products : [];
+const collections = Array.isArray(ctx.collections) ? ctx.collections : [];
+
+  // Step 1 — Business name
+  if (step === 1) {
+    const el = document.getElementById("setupBusinessName");
+    if (el && !String(el.value || "").trim()) {
+      const name =
+        shop.name ||
+        shop.shopName ||
+        shop.myshopify_domain ||
+        "";
+      if (name) el.value = String(name);
+    }
+  }
+
+  // Step 2 — Industry (best guess from product types)
+  if (step === 2) {
+    const el = document.getElementById("setupIndustry");
+    if (el && !String(el.value || "").trim()) {
+      const types = [...new Set(products.map(p => p && p.productType).filter(Boolean))].slice(0, 5);
+      el.value = types.length ? `Ecommerce (${types.join(", ")})` : "Ecommerce";
+    }
+  }
+
+  // Step 3 — Products (titles + collections)
+  if (step === 3) {
+    const el = document.getElementById("setupProducts");
+    if (el && !String(el.value || "").trim()) {
+      const titles = products.map(p => p && p.title).filter(Boolean).slice(0, 12);
+      const colls = collections.map(c => (c && (c.title || c.handle))).filter(Boolean).slice(0, 8);
+
+      const lines = [];
+      if (titles.length) {
+        lines.push("Products:");
+        titles.forEach(t => lines.push(`- ${t}`));
+      }
+      if (colls.length) {
+        if (lines.length) lines.push("");
+        lines.push("Collections:");
+        colls.forEach(t => lines.push(`- ${t}`));
+      }
+
+      const v = lines.join("\n").trim();
+      if (v) el.value = v;
+    }
+  }
+
+// Step 4 — Target customer (GPT-generated, saved in config)
+if (step === 4) {
+  const el = document.getElementById("setupTargetCustomer");
+  if (el && !String(el.value || "").trim()) {
+    try {
+      const rr = await fetch("/admin/setup/suggest-target-customer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: false })
+      });
+
+      const jj = await rr.json().catch(() => ({}));
+
+      if (rr.ok && jj && jj.ok === true && String(jj.target_customer || "").trim()) {
+        el.value = String(jj.target_customer).trim();
+
+        // Update local CFG so renderSetupStep(4) also shows it immediately on re-render
+        try {
+          if (cfg && cfg.businessContext) cfg.businessContext.target_customer = el.value;
+        } catch {}
+      } else {
+        toastOnce(
+          "setup_target_customer_autofill_failed",
+          "Couldn’t autofill Target customer — enter it manually.",
+          12000
+        );
+      }
+    } catch {
+      toastOnce(
+        "setup_target_customer_autofill_failed",
+        "Couldn’t autofill Target customer — enter it manually.",
+        12000
+      );
+    }
+  }
+}
+
+  _cw_shopifyAutofillLastStep = step;
+}
+
+      async function refreshUI() {
+        const { ok, cfg } = await getConfig();
+                if (!ok) {
+  // Can't reach server. Be honest + show disconnect reason.
+  setHeaderRobotPill(false);
+  applyRobotPillGlow({ serverReachable: false, robotEnabled: false });
+  return;
+}
+
+CFG = cfg;
+
+// v0.3 setup wizard: render current step
+const step = Number(cfg.businessContext?.setupStep ?? 0);
+
+// Treat “Shopify connected” as “setup started” (so we don’t get forced back to Connect screen)
+const started =
+  (localStorage.getItem("cw_setup_started") === "1") ||
+  !!cfg.shopify?.accessToken;
+
+// Decide which step we are actually showing right now
+const displayStep = (cfg._postingBlocked === true && !started) ? 0 : (step === 0 ? 0 : step);
+
+// Render the step we’re showing
+renderSetupStep(displayStep);
+
+// v0.4 Shopify autopopulate (UI-only)
+try { await maybeAutofillSetupFromShopify(cfg); } catch {}
+
+// Update the Step X of 7 label to match what we’re showing (not what config says)
+const stepLabel = document.getElementById("setupStepLabel");
+if (stepLabel) {
+  stepLabel.innerText = (displayStep === 0) ? "" : `Step ${displayStep} of 7`;
+}
+
+// v0.3 wizard UI: show saved business name if present
+const prev = document.getElementById("setupBizNamePreview");
+if (prev) {
+  const bn = cfg.businessContext?.business_name;
+  prev.innerText = bn ? bn : "—";
+}
+// v0.3: full-page setup gate overlay
+const overlay = document.getElementById("appSetupOverlay");
+if (overlay) {
+  const forced = (localStorage.getItem("cw_setup_force") === "1");
+overlay.style.display = (cfg._postingBlocked === true || forced) ? "flex" : "none";
+}
+
+// Setup wizard status pill should reflect real setup state
+const setupDot = document.getElementById("setupStatusDot");
+const setupText = document.getElementById("setupStatusText");
+
+if (setupDot && setupText) {
+  if (cfg._postingBlocked === true) {
+    setupDot.className = "dot bad";
+    setupText.innerText = "Not configured";
+  } else {
+    setupDot.className = "dot ok";
+    setupText.innerText = "Configured";
+  }
+}
+
+        setModeUI(cfg.mode);
+        setHeaderRobotPill(cfg.robotEnabled);
+applyRobotPillGlow({ serverReachable: true, robotEnabled: cfg.robotEnabled });
+// Server reachable again: clear yellow (disconnect) glow
+// Show white glow only when robot is intentionally paused
+const pill = document.getElementById("robotStatus");
+if (pill) {
+  pill.classList.remove("offline-error");
+  if (cfg.robotEnabled === false) pill.classList.add("offline-user");
+  else pill.classList.remove("offline-user");
+}
+       
+// Settings: TopicGen truth
+const tg = cfg.topicGen || {};
+const minTopics = Number(tg.minTopics ?? 3);
+const batchSize = Number(tg.batchSize ?? 10);
+
+const tMinText = document.getElementById("settingsTopicMinText");
+if (tMinText) tMinText.innerText = String(minTopics);
+const tMinSlider = document.getElementById("settingsTopicMinSlider");
+if (tMinSlider) tMinSlider.value = String(minTopics);
+
+const tBatchText = document.getElementById("settingsTopicBatchText");
+if (tBatchText) tBatchText.innerText = String(batchSize);
+const tBatchSlider = document.getElementById("settingsTopicBatchSlider");
+if (tBatchSlider) tBatchSlider.value = String(batchSize);
+
+// Settings: Auto Topic Generator enabled/disabled truth
+const autoDot = document.getElementById("settingsTopicAutoDot");
+const autoText = document.getElementById("settingsTopicAutoText");
+
+// Default is enabled unless explicitly false (matches backend)
+const autoEnabled = (tg.enabled !== false);
+
+if (autoDot) autoDot.className = "dot " + (autoEnabled ? "ok" : "bad");
+if (autoText) autoText.innerText = autoEnabled ? "Enabled" : "Disabled";
+
+// Daily Posts pill: max comes from config, "today count" comes from activity list (so it resets at midnight)
+window._maxPerDay = Number(cfg?.dailyLimit?.maxPerDay ?? 6);
+const dailyEl = document.getElementById("dailyPostsText");
+if (dailyEl) dailyEl.innerText = `Daily Posts: — / ${window._maxPerDay}`;
+
+        // Load profiles from backend (source of truth)
+schedulesLocal = Array.isArray(cfg.schedules) ? cfg.schedules : [];
+
+// Auto-prune unused profiles (Profile 2+ only): if no days OR no times, delete it
+schedulesLocal = schedulesLocal.filter((p, idx) => {
+  if (idx === 0) return true; // never delete Profile 1
+  const daysOk = Array.isArray(p?.daysOfWeek) && p.daysOfWeek.length > 0;
+  const timesOk = Array.isArray(p?.times) && p.times.length > 0;
+  return daysOk && timesOk;
+});
+
+// Ensure at least 1 profile exists
+if (!schedulesLocal.length) {
+  schedulesLocal = [{ enabled: true, daysOfWeek: [], times: [] }];
+}
+
+// Clamp active index
+if (scheduleProfileIndex >= schedulesLocal.length) scheduleProfileIndex = 0;
+
+// Show the active profile using the existing schedule UI
+const p = schedulesLocal[scheduleProfileIndex] || { daysOfWeek: [], times: [] };
+setScheduleUI({
+  daysOfWeek: Array.isArray(p.daysOfWeek) ? p.daysOfWeek : [],
+  time: Array.isArray(p.times) ? p.times.join(", ") : ""
+});
+
+updateProfileUI();
+
+// Schedule / last-post text can change heights -> resync BOTH rows
+// Auto-resync when cards resize (chips added, text updates, etc.)
+(function setupResizeObservers() {
+  const scheduleCard = document.getElementById("scheduleCard");
+  const actionsCard = document.getElementById("actionsCard");
+
+  if (!window.ResizeObserver) return;
+
+  const obs = new ResizeObserver(() => {
+    // If we ever go single-column, don't force heights
+    if (window.innerWidth < 820) {
+      const activityCard = document.getElementById("activityCard");
+      const topicsCard = document.getElementById("topicsCard");
+      if (activityCard) activityCard.style.height = "";
+      if (actionsCard) actionsCard.style.height = "";
+      if (topicsCard) topicsCard.style.height = "";
+      return;
+    }
+
+    syncTopRowHeights();
+    syncBottomRowHeights();
+  });
+
+  if (scheduleCard) obs.observe(scheduleCard);
+  if (actionsCard) obs.observe(actionsCard);
+})();
+
+syncAllHeights();
+        
+const sp = document.getElementById("settingsPortText");
+if (sp) sp.innerText = cfg.port || "—";
+      const last = document.getElementById("lastPostText");
+      if (cfg.lastPost && cfg.lastPost.at) {
+  	const when = fmtTime(cfg.lastPost.at);
+  	last.innerText = `Last Scheduled Post: ${cfg.lastPost.published ? "Published" : "Draft"} — ${cfg.lastPost.title} (${when})`;
+      } else {
+        last.innerText = "";
+	refreshActivityUI();
+      }
+
+        document.getElementById("topicsCount").innerText = (cfg.topics || []).length;
+        document.getElementById("archiveCount").innerText = (cfg.topicArchive || []).length;
+
+        window._lastTopics = cfg.topics || [];
+window._lastTopicArchive = cfg.topicArchive || [];
+
+if (topicsView === "archived") {
+  renderTopics(window._lastTopicArchive, "archived");
+} else {
+  renderTopics(window._lastTopics, "queue");
+}
+      }
+
+      async function postNow() {
+  // Make sure the old inline status line can’t stick around
+  const old = document.getElementById("postStatus");
+  if (old) {
+    old.innerText = "";
+    old.style.display = "none";
+  }
+
+  const dot = document.getElementById("postNowDot");
+  const text = document.getElementById("postNowText");
+  const btn = document.getElementById("postNowBtn");
+
+  text.innerText = "Posting…";
+  btn.disabled = true;
+  btn.style.opacity = "0.6";
+  btn.style.cursor = "not-allowed";
+  dot.className = "dot bad";
+
+  try {
+    const res = await fetch("/post-seo");
+    const data = await res.json();
+
+    if (data.skipped) {
+      showToast("Skipped: " + data.reason);
+    } else {
+      // Determine mode so LIVE never says “Draft created”
+      const cfgRes = await getConfig();
+      const mode =
+        (cfgRes && cfgRes.ok && cfgRes.cfg && cfgRes.cfg.mode)
+          ? cfgRes.cfg.mode
+          : "draft";
+
+      const published = !!data.isPublished;
+
+      let label = "Created ✔";
+      if (mode === "draft") {
+        label = "Draft created ✔";
+      } else {
+        label = published ? "Published ✔" : "Created (unpublished) ✔";
+      }
+
+      showToast(`${label} — ${data.title}`);
+    }
+
+    await refreshUI();
+  } finally {
+    text.innerText = "Ready to Post";
+    dot.className = "dot ok";
+    btn.disabled = false;
+    btn.style.opacity = "1";
+    btn.style.cursor = "pointer";
+  }
+}
+
+
+      async function toggleMode() {
+        const el = document.getElementById("modeStatus");
+        el.innerText = "Saving...";
+        const res = await fetch("/admin/toggle-mode", { method: "POST" });
+        const data = await res.json();
+        el.innerText = data.ok ? "Updated ✔" : "Error toggling mode";
+        await refreshUI();
+	document.getElementById("postNowText").innerText = "Ready to Post";
+	document.getElementById("postNowDot").className = "dot ok";
+      }
+
+function clearScheduleUI() {
+  // Clear day button selection (UI only)
+  document.querySelectorAll(".day-btn").forEach(b => b.classList.remove("selected"));
+  const daysHidden = document.getElementById("days");
+  if (daysHidden) daysHidden.value = "";
+
+  // Clear times (UI only)
+  const timeHidden = document.getElementById("time");
+  if (timeHidden) timeHidden.value = "";
+
+  const chips = document.getElementById("timeChips");
+  if (chips) chips.innerHTML = "";
+
+  const picker = document.getElementById("timePicker");
+  if (picker) picker.value = "";
+
+  // Show a local status (NOT a save)
+  const el = document.getElementById("scheduleStatus");
+  if (el) {
+    el.style.display = "block";
+    el.innerText = "Cleared (not saved) ✔";
+    setTimeout(() => {
+      el.innerText = "";
+      el.style.display = "none";
+    }, 2000);
+  }
+
+  // Mark as dirty so refresh/exit warns
+  markScheduleDirty();
+}
+
+        async function saveSchedule_OLD() {
+	console.log("saveSchedule CALLED");
+        showToast("Saving schedule…");
+
+
+        const daysRaw = document.getElementById("days").value;
+        const time = document.getElementById("time").value;
+// Block saving invalid schedules
+const daysOfWeek = daysRaw.split(",").map(d => d.trim()).filter(Boolean);
+const times = String(time || "").split(",").map(t => t.trim()).filter(Boolean);
+
+if (!daysOfWeek.length) {
+  showToast("Schedule not saved: select at least 1 day.");
+  return;
+}
+
+if (!times.length) {
+  showToast("Schedule not saved: add at least 1 time.");
+  return;
+}
+
+// Save the CURRENT UI into the active profile (local only until backend save)
+schedulesLocal[scheduleProfileIndex] = {
+  enabled: true,
+  daysOfWeek,
+  times: times.map(t => normalizeTimeStr(t)).filter(Boolean)
+};
+
+        const res = await fetch("/admin/update-schedule", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ profiles: schedulesLocal })
+        });
+
+        const data = await res.json();
+        if (data.ok) showToast("Schedule saved ✔");
+else showToast("Schedule save failed: " + (data.error || "unknown"));
+	
+        await refreshUI();
+      }
+
+      async function addTopic() {
+  // v0.3 gate: do nothing before setup is complete
+  if (CFG && CFG._postingBlocked === true) {
+    showToast("Setup required: complete setup before adding topics.");
+    return;
+  }
+
+        const el = document.getElementById("topicStatus");
+        const input = document.getElementById("newTopic");
+        const topic = input.value.trim();
+        if (!topic) return;
+
+        el.innerText = "Adding...";
+
+        const res = await fetch("/admin/topics/add", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic })
+        });
+
+        const data = await res.json();
+        el.innerText = data.ok ? "Added ✔" : ("Error: " + (data.error || "unknown"));
+        input.value = "";
+        await refreshUI();
+      }
+
+      async function removeTopic(index) {
+        const el = document.getElementById("topicStatus");
+        el.innerText = "Removing...";
+
+        const res = await fetch("/admin/topics/remove", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ index })
+        });
+
+        const data = await res.json();
+        el.innerText = data.ok ? "Removed ✔" : ("Error: " + (data.error || "unknown"));
+        await refreshUI();
+      }
+      async function refreshStartupUI() {
+  const text = document.getElementById("startupText");
+  const dot  = document.getElementById("startupDot");
+
+  const sText = document.getElementById("settingsStartupText");
+  const sDot  = document.getElementById("settingsStartupDot");
+
+  // If neither legacy UI nor Settings UI exists, do nothing.
+  if ((!text || !dot) && (!sText || !sDot)) return;
+
+  try {
+    const res = await fetch("/admin/startup-status");
+    const data = await res.json();
+
+    if (!data.ok) {
+      if (text) text.innerText = "Error";
+      if (dot)  dot.className = "dot bad";
+      if (sText) sText.innerText = "Error";
+      if (sDot)  sDot.className = "dot bad";
+      return;
+    }
+
+    const enabled = !!data.enabled;
+
+    if (text) text.innerText = enabled ? "Enabled" : "Disabled";
+    if (dot)  dot.className  = "dot " + (enabled ? "ok" : "bad");
+
+    if (sText) sText.innerText = enabled ? "Enabled" : "Disabled";
+    if (sDot)  sDot.className  = "dot " + (enabled ? "ok" : "bad");
+  } catch {
+    if (text) text.innerText = "Error";
+    if (dot)  dot.className = "dot bad";
+    if (sText) sText.innerText = "Error";
+    if (sDot)  sDot.className = "dot bad";
+  }
+}
+
+async function clearQueue() {
+  const btn = document.getElementById("clearQueueBtn");
+  const dot = document.getElementById("clearQueueDot");
+  const text = document.getElementById("clearQueueText");
+
+  if (!btn || !dot || !text) return;
+  if (btn.disabled) return;
+
+  const ok = await confirmAsync("Delete the queue? This cannot be undone.");
+  if (!ok) return;
+
+  btn.disabled = true;
+  text.innerText = "Clearing...";
+  dot.className = "dot bad";
+
+  try {
+    const res = await fetch("/admin/topics/clear-queue", { method: "POST" });
+    const data = await res.json();
+
+    if (!data || data.ok !== true) {
+      text.innerText = "Error";
+      dot.className = "dot bad";
+      btn.disabled = false;
+      return;
+    }
+
+    text.innerText = "Cleared ✓";
+    dot.className = "dot ok";
+
+    try { await refreshUI(); } catch {}
+    try { await refreshActivityUI(); } catch {}
+
+    setTimeout(() => {
+      text.innerText = "Ready";
+      dot.className = "dot ok";
+      btn.disabled = false;
+    }, 1200);
+
+  } catch {
+    text.innerText = "Error";
+    dot.className = "dot bad";
+    btn.disabled = false;
+  }
+}
+
+async function clearArchive() {
+  const btn = document.getElementById("clearArchiveBtn");
+  const dot = document.getElementById("clearArchiveDot");
+  const text = document.getElementById("clearArchiveText");
+
+  if (!btn || !dot || !text) return;
+  if (btn.disabled) return;
+
+const ok = await confirmAsync("Delete the archive? This cannot be undone.");
+if (!ok) return;
+
+  // State: Clearing...
+  btn.disabled = true;
+  text.innerText = "Clearing...";
+  dot.className = "dot bad";
+
+  try {
+    const res = await fetch("/admin/topics/clear-archive", { method: "POST" });
+    const data = await res.json();
+
+    if (!data || data.ok !== true) {
+      text.innerText = "Error";
+      dot.className = "dot bad";
+      btn.disabled = false;
+      return;
+    }
+
+    // State: Cleared ✓ (brief)
+    text.innerText = "Cleared ✓";
+    dot.className = "dot ok";
+
+    // Refresh UI so counts update
+    try { await refreshUI(); } catch {}
+    try { await refreshActivityUI(); } catch {}
+
+    // Back to Ready
+    setTimeout(() => {
+      text.innerText = "Ready";
+      dot.className = "dot ok";
+      btn.disabled = false;
+    }, 1200);
+
+  } catch (e) {
+    text.innerText = "Error";
+    dot.className = "dot bad";
+    btn.disabled = false;
+  }
+}
+
+async function generateTopicsNow() {
+  // v0.3 gate: do nothing before setup is complete
+  if (CFG && CFG._postingBlocked === true) {
+    showToast("Setup required: complete setup before generating topics.");
+    return;
+  }
+  const btn = document.getElementById("genTopicsBtn");
+  const dot = document.getElementById("genTopicsDot");
+  const text = document.getElementById("genTopicsText");
+
+  if (!btn || !dot || !text) return;
+  if (btn.disabled) return;
+
+  // State: Generating...
+  btn.disabled = true;
+  btn.style.opacity = "0.6";
+  btn.style.cursor = "not-allowed";
+  text.innerText = "Generating…";
+  dot.className = "dot";
+
+  try {
+    const ping = await fetchJsonWithTimeout("/admin/config");
+if (!ping.ok || !ping.data || ping.data.ok !== true) throw new Error("server unreachable");
+
+       // Trigger generation (real)
+    const genRes = await fetch("/admin/topics/generate", { method: "POST" });
+    const genData = await genRes.json();
+    if (!genRes.ok || !genData.ok) throw new Error(genData.error || "generation failed");
+
+    // Success
+    text.innerText = "Generated ✔";
+    dot.className = "dot ok";
+
+    // Refresh topics + activity
+    await refreshUI();
+    await refreshActivityUI();
+
+    setTimeout(() => {
+      text.innerText = "Ready";
+      dot.className = "dot ok";
+      btn.disabled = false;
+      btn.style.opacity = "1";
+      btn.style.cursor = "pointer";
+    }, 1500);
+
+  } catch {
+    text.innerText = "Error";
+    dot.className = "dot bad";
+    btn.disabled = false;
+    btn.style.opacity = "1";
+    btn.style.cursor = "pointer";
+  }
+}
+
+async function toggleTopicAuto() {
+  try {
+    const res = await fetch("/admin/topicgen/toggle", { method: "POST" });
+    const data = await res.json();
+    if (!data || data.ok !== true) {
+      showToast("Failed to toggle topic generator");
+      return;
+    }
+    await refreshUI();
+await refreshTopicsUI();
+  } catch {
+    showToast("Failed to toggle topic generator");
+  }
+}
+
+async function sendTestPostDraft() {
+  try {
+    const res = await fetch("/admin/testpost", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data.ok !== true) {
+      const msg = (data && data.error) ? String(data.error) : "Test post failed";
+      showToast(msg);
+      return;
+    }
+
+    showToast("Test post sent (draft).");
+    await refreshUI();
+  } catch (e) {
+    showToast("Test post failed");
+  }
+}
+
+async function toggleStartup() {
+  try {
+    const res = await fetch("/admin/toggle-startup", { method: "POST" });
+    const data = await res.json();
+    if (!data.ok) return;
+
+    // Refresh truth after toggle
+    await refreshStartupUI();
+  } catch {}
+}
+
+// Time format (Dev Tools): "12" or "24"
+function getTimeFormat() {
+  return localStorage.getItem("cw_timeFormat") || "12";
+}
+
+async function saveTopicGenSettings() {
+  const minSlider = document.getElementById("settingsTopicMinSlider");
+  const batchSlider = document.getElementById("settingsTopicBatchSlider");
+
+  const minDot = document.getElementById("settingsTopicMinDot");
+  const batchDot = document.getElementById("settingsTopicBatchDot");
+
+  const minText = document.getElementById("settingsTopicMinText");
+  const batchText = document.getElementById("settingsTopicBatchText");
+
+  const minVal = Number(minSlider ? minSlider.value : NaN);
+  const batchVal = Number(batchSlider ? batchSlider.value : NaN);
+
+  if (!Number.isFinite(minVal) || !Number.isFinite(batchVal)) {
+    if (minDot) minDot.className = "dot bad";
+    if (batchDot) batchDot.className = "dot bad";
+    return;
+  }
+
+  // Keep the pill numbers in sync immediately
+  if (minText) minText.innerText = String(minVal);
+  if (batchText) batchText.innerText = String(batchVal);
+
+  // "Saving…" state
+  if (minDot) minDot.className = "dot";
+  if (batchDot) batchDot.className = "dot";
+
+  try {
+    const res = await fetch("/admin/topicgen/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ minTopics: minVal, batchSize: batchVal })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data?.error || "Save failed");
+
+    if (minDot) minDot.className = "dot ok";
+    if (batchDot) batchDot.className = "dot ok";
+
+    await refreshUI(); // re-pull truth
+  } catch {
+    if (minDot) minDot.className = "dot bad";
+    if (batchDot) batchDot.className = "dot bad";
+  }
+}
+
+function setTimeFormat(v) {
+  localStorage.setItem("cw_timeFormat", v);
+}
+
+function formatHHMM(raw) {
+  const m = String(raw || "").match(/^(\d{2}):(\d{2})$/);
+  if (!m) return String(raw || "");
+
+  const hh = Number(m[1]);
+  const mm = m[2];
+  const fmt = getTimeFormat();
+
+  if (fmt === "24") return `${String(hh).padStart(2, "0")}:${mm}`;
+
+  let h = hh % 12;
+  if (h === 0) h = 12;
+  const ampm = hh >= 12 ? "PM" : "AM";
+  return `${h}:${mm} ${ampm}`;
+}
+
+// Backend clock string is like: "01/18/2026, 02:40:13" (24h)
+function formatBackendClockString(s) {
+  const str = String(s || "").trim();
+  if (!str) return str;
+
+  const parts = str.split(",");
+  if (parts.length < 2) return str;
+
+  const datePart = parts[0].trim();
+  const timePart = parts[1].trim(); // HH:MM:SS
+
+  const m = timePart.match(/^(\d{2}):(\d{2}):(\d{2})$/);
+  if (!m) return str;
+
+  const hh = Number(m[1]);
+  const mm = m[2];
+  const ss = m[3];
+
+  if (getTimeFormat() === "24") {
+    return `${datePart}, ${String(hh).padStart(2, "0")}:${mm}:${ss}`;
+  }
+
+  let h = hh % 12;
+  if (h === 0) h = 12;
+  const ampm = hh >= 12 ? "PM" : "AM";
+  return `${datePart}, ${h}:${mm}:${ss} ${ampm}`;
+}
+
+function applyTimeFormatUI() {
+  const t = document.getElementById("timeFmtText");
+  if (t) t.innerText = (getTimeFormat() === "24") ? "24-hour" : "12-hour";
+  const st = document.getElementById("settingsTimeFmtText");
+  if (st) st.innerText = (getTimeFormat() === "24") ? "24-hour" : "12-hour";
+
+  const sd = document.getElementById("settingsTimeFmtDot");
+  if (sd) sd.className = "dot ok";
+
+  // Refresh things that show times
+  try { renderClockText(); } catch {}
+  try { refreshActivityUI(); } catch {}
+
+  // Re-render time chips from hidden value
+  try { renderTimeChips(getTimesFromHidden()); } catch {}
+
+  // Re-render last scheduled post line (uses fmtTime)
+  try { refreshUI(); } catch {}
+}
+
+function toggleTimeFormat() {
+  const next = (getTimeFormat() === "24") ? "12" : "24";
+  setTimeFormat(next);
+  applyTimeFormatUI();
+}
+
+function fmtTime(ts) {
+  try {
+    const d = new Date(ts);
+    const fmt = getTimeFormat();
+    return new Intl.DateTimeFormat(undefined, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: (fmt !== "24"),
+    }).format(d);
+  } catch {
+    return "";
+  }
+}
+
+async function refreshActivityUI() {
+  const box = document.getElementById("activityList");
+  if (!box) return;
+
+  try {
+        const r = await fetchJsonWithTimeout("/admin/activity");
+    if (!r.ok) {
+      setHeaderRobotPill(false);
+applyRobotPillGlow({ serverReachable: false, robotEnabled: false });
+
+// Server disconnected (not user-paused): show yellow outline
+const pill = document.getElementById("robotStatus");
+if (pill) {
+  pill.classList.remove("offline-user");
+  pill.classList.add("offline-error");
+}
+      // Server unreachable — keep showing last known activity (stale)
+      const cached = localStorage.getItem("ab_lastActivityHTML");
+      if (cached) {
+        box.innerHTML = `<div class="muted" style="margin-bottom:8px;">Offline — showing last known activity</div>` + cached;
+      } else {
+        box.innerText = "Offline — activity unavailable.";
+      }
+      return;
+    }
+
+    const data = r.data;
+    // Server is reachable again — refresh header pill from real config
+    const cfgRes = await fetchJsonWithTimeout("/admin/config");
+    if (cfgRes.ok && cfgRes.data && cfgRes.data.ok) {
+      setHeaderRobotPill(cfgRes.data.cfg.robotEnabled);
+applyRobotPillGlow({ serverReachable: true, robotEnabled: cfgRes.data.cfg.robotEnabled });
+    }
+
+    if (!data.ok) {
+      box.innerText = "Activity unavailable.";
+      return;
+    }
+
+    const items = Array.isArray(data.activity) ? data.activity : [];
+// Daily Posts: count POSTS that happened TODAY (local date)
+const todayKey = new Date().toDateString();
+const postsToday = items.filter(e =>
+  e.type === "post" && new Date(e.ts).toDateString() === todayKey
+).length;
+
+const max = Number(window._maxPerDay ?? 6);
+const dailyEl = document.getElementById("dailyPostsText");
+if (dailyEl) dailyEl.innerText = `Daily Posts: ${postsToday} / ${max}`;
+    if (!items.length) {
+      box.innerText = "No recent activity yet.";
+      return;
+    }
+
+     // Activity range cutoff (local time)
+let cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000); // default 7d
+
+if (activityRange === "30d") {
+  cutoff = Date.now() - (30 * 24 * 60 * 60 * 1000);
+}
+
+if (activityRange === "mtd") {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+  cutoff = start.getTime();
+}
+
+const recent = items.filter(e => {
+  const ts = Number(e.ts);
+  return Number.isFinite(ts) && ts >= cutoff;
+});
+
+
+if (!recent.length) {
+  box.innerText = "No recent activity.";
+  return;
+}
+
+// safety cap so we don’t render a million lines
+const list = recent.slice(0, 200);
+
+const html = list.map((e) => {
+
+      const time = fmtTime(e.ts);
+      const src = e.source === "scheduled" ? "Scheduled" : (e.source === "manual" ? "Manual" : "—");
+// Profile label (supports both formats):
+// 1) e.profile = 1,2,3...
+// 2) title starts with "Profile X: ..."
+let profileNum = null;
+
+if (Number.isFinite(Number(e.profile))) {
+  profileNum = Number(e.profile);
+} else {
+  const m = String(e.title || "").match(/^Profile\s+(\d+)\s*:/i);
+  if (m) profileNum = Number(m[1]);
+}
+      const kind =
+        e.type === "post" ? "Posted" :
+        e.type === "skip" ? "Skipped" :
+        e.type === "error" ? "Error" : e.type;
+
+      const mode = e.mode ? String(e.mode).toUpperCase() : "";
+      const title = (e.title || "").toString();
+
+    const intent = e.intent ? String(e.intent).toUpperCase() : "";
+
+return `<div style="margin-bottom:8px;">
+        <strong>${kind}</strong> — ${src}${profileNum ? ` • Profile ${profileNum}` : ""}${mode ? ` • ${mode}` : ""}<br/>
+        <span>${title}</span><br/>
+        ${intent ? `<span class="muted">Intent: ${intent}</span><br/>` : ""}
+        <span class="muted">${time}</span>
+      </div>`;
+
+    }).join("");
+
+    // Preserve scroll position during refresh (prevents snapping to top)
+const prevScrollTop = box.scrollTop;
+const prevScrollHeight = box.scrollHeight;
+const wasAtBottom = (prevScrollTop + box.clientHeight) >= (prevScrollHeight - 2);
+
+box.innerHTML = html;
+
+localStorage.setItem("ab_lastActivityHTML", html);
+// Activity content changed -> resync BOTH rows
+syncAllHeights();
+
+// Restore scroll AFTER layout changes (syncAllHeights can shift things)
+requestAnimationFrame(() => {
+  if (wasAtBottom) {
+    box.scrollTop = box.scrollHeight;
+  } else {
+    box.scrollTop = prevScrollTop;
+  }
+});
+
+  } catch {
+    setHeaderRobotPill(false);
+    box.innerText = "Activity unavailable.";
+  }
+}
+
+let _lastSchedulerStatus = "idle";
+
+async function refreshSchedulerLiveUI() {
+  const el = document.getElementById("scheduleLiveText");
+  if (!el) return;
+
+  try {
+    const res = await fetch("/admin/scheduler-status");
+    const data = await res.json();
+
+    if (!data.ok) {
+      el.innerText = "";
+      return;
+    }
+
+    const status = data.schedulerStatus;
+
+    // Transition: posting -> not posting = "scheduled run finished"
+    if (_lastSchedulerStatus === "posting" && status !== "posting") {
+      toastOnce("scheduled_post_finished", "Scheduled post finished.");
+      try { refreshUI(); } catch {}
+    }
+
+    _lastSchedulerStatus = status;
+
+    const robotText = document.getElementById("robotStatusText");
+    const robotLooksOnline =
+      robotText && robotText.innerText.trim().toLowerCase() === "online";
+
+    if (status === "paused") {
+      el.innerText = robotLooksOnline ? "" : "Offline — scheduler paused";
+    } else if (status === "posting") {
+      el.innerText = "Posting scheduled article…";
+    } else {
+      // idle: no inline “Posted” flash anymore
+      el.innerText = "";
+    }
+  } catch {
+    el.innerText = "";
+  }
+}
+
+
+let clockExpanded = false;     // start collapsed (time only)
+let _lastNowLocal = "";        // last server clock string
+
+function renderClockText() {
+  const text = document.getElementById("clockText");
+  if (!text) return;
+
+  const s = String(_lastNowLocal || "").trim();
+const sFmt = formatBackendClockString(s);
+
+  // If server sends: "01/18/2026, 02:40:13"
+  // Expanded: "01/18/2026 02:40:13"   (comma removed)
+  // Collapsed: "02:40:13"
+  if (clockExpanded) {
+    text.innerText = sFmt.replace(", ", " ");
+  } else {
+    const parts = sFmt.split(",");
+text.innerText = (parts.length >= 2 ? parts[1].trim() : sFmt);
+  }
+}
+
+function toggleClockView() {
+  clockExpanded = !clockExpanded;
+  renderClockText();
+}
+
+async function refreshClockUI() {
+  const dot = document.getElementById("clockDot");
+  if (!dot) return;
+
+  try {
+    const r = await fetchJsonWithTimeout("/admin/clock");
+    if (!r.ok || !r.data || !r.data.ok) {
+      _lastNowLocal = "Clock —";
+      dot.className = "dot bad";
+      renderClockText();
+      return;
+    }
+
+    _lastNowLocal = r.data.nowLocal; // backend formatted string
+    dot.className = "dot ok";
+    renderClockText();
+  } catch {
+    _lastNowLocal = "Clock —";
+    dot.className = "dot bad";
+    renderClockText();
+  }
+}
+
+      initDayButtons();
+      initTimePicker();
+      applyTimeFormatUI();
+
+
+// Topics view toggle (Queue / Archived)
+const queueTab = document.getElementById("queueTab");
+const archivedTab = document.getElementById("archivedTab");
+
+if (queueTab) queueTab.addEventListener("click", () => setTopicsView("queue"));
+if (archivedTab) archivedTab.addEventListener("click", () => setTopicsView("archived"));
+
+// --- Recent Activity range toggle (UI wiring only) ---
+let activityRange = localStorage.getItem("ab_activity_range") || "7d";
+
+function setActivityRange(next) {
+  activityRange = next;
+  localStorage.setItem("ab_activity_range", next);
+
+  const b7 = document.getElementById("activityRange7d");
+  const b30 = document.getElementById("activityRange30d");
+  const bm = document.getElementById("activityRangeMTD");
+
+  // Simple active state (no new CSS)
+  if (b7) b7.style.opacity = (next === "7d") ? "1" : "0.5";
+  if (b30) b30.style.opacity = (next === "30d") ? "1" : "0.5";
+  if (bm) bm.style.opacity = (next === "mtd") ? "1" : "0.5";
+
+  refreshActivityUI();
+const tabs = [
+  { el: document.getElementById("activityRange7d"), key: "7d" },
+  { el: document.getElementById("activityRange30d"), key: "30d" },
+  { el: document.getElementById("activityRangeMTD"), key: "mtd" }
+];
+
+tabs.forEach(t => {
+  if (!t.el) return;
+
+  if (activityRange === t.key) {
+    t.el.style.textDecoration = "underline";
+    t.el.style.fontWeight = "700";
+  } else {
+    t.el.style.textDecoration = "none";
+    t.el.style.fontWeight = "400";
+  }
+});
+}
+
+// Wire buttons
+const b7 = document.getElementById("activityRange7d");
+const b30 = document.getElementById("activityRange30d");
+const bm = document.getElementById("activityRangeMTD");
+
+if (b7) b7.addEventListener("click", () => setActivityRange("7d"));
+if (b30) b30.addEventListener("click", () => setActivityRange("30d"));
+if (bm) bm.addEventListener("click", () => setActivityRange("mtd"));
+
+// Initial visual state
+setActivityRange(activityRange);
+
+// --- v0.2 Profiles helpers (safe + simple) ---
+function snapshotUIToActiveProfile() {
+  // Read what’s currently on screen
+  const daysRaw = document.getElementById("days")?.value || "";
+  const timeRaw = document.getElementById("time")?.value || "";
+
+  const daysOfWeek = daysRaw.split(",").map(d => d.trim()).filter(Boolean);
+
+  const times = String(timeRaw || "")
+    .split(",")
+    .map(t => normalizeTimeStr(t))
+    .filter(Boolean);
+
+  // Store into the active profile slot
+  schedulesLocal[scheduleProfileIndex] = {
+    enabled: true,
+    daysOfWeek,
+    times
+  };
+}
+
+function loadActiveProfileIntoUI() {
+  // Ensure at least 1 profile exists
+  if (!Array.isArray(schedulesLocal) || schedulesLocal.length === 0) {
+    schedulesLocal = [{ enabled: true, daysOfWeek: [], times: [] }];
+  }
+
+  // Clamp index
+  if (scheduleProfileIndex < 0) scheduleProfileIndex = 0;
+  if (scheduleProfileIndex >= schedulesLocal.length) scheduleProfileIndex = 0;
+
+  const p = schedulesLocal[scheduleProfileIndex] || { daysOfWeek: [], times: [] };
+
+  // Reuse your existing schedule UI function
+  setScheduleUI({
+    daysOfWeek: Array.isArray(p.daysOfWeek) ? p.daysOfWeek : [],
+    time: Array.isArray(p.times) ? p.times.join(", ") : ""
+  });
+updateProfileUI();
+
+}
+
+// --- Schedule Profiles (UI controls) ---
+let scheduleProfileCount = 1;
+const SCHEDULE_PROFILE_MAX = 7;
+initProfileButtons();
+
+function updateProfileUI() {
+  const prev = document.getElementById("profilePrevBtn");
+  const add = document.getElementById("profileAddBtn");
+  const label = document.getElementById("profileLabel");
+  // --- Delete button rules ---
+  const del = document.getElementById("deleteProfileBtn");
+  const clearBtn = document.getElementById("clearScheduleBtn");
+
+  // Profile 1: never show delete, and Clear stays full width
+  if (scheduleProfileIndex === 0) {
+    if (del) del.style.display = "none";
+    if (clearBtn) clearBtn.style.flex = "1";
+  } else {
+    // Profiles 2+: show delete, and Clear becomes 70%
+    if (del) del.style.display = "inline-flex";
+    if (clearBtn) clearBtn.style.flex = "0.7";
+  }
+
+  scheduleProfileCount = Array.isArray(schedulesLocal) ? schedulesLocal.length : 1;
+
+
+  if (label) label.innerText = `Profile ${scheduleProfileIndex + 1}`;
+
+  // Hide "<" on Profile 1
+  if (prev) prev.style.visibility = (scheduleProfileIndex === 0) ? "hidden" : "visible";
+
+  // Hard cap at 7 profiles
+  if (add) {
+    const canAdd = scheduleProfileCount < SCHEDULE_PROFILE_MAX;
+const hasNext = scheduleProfileIndex < (scheduleProfileCount - 1);
+
+// If there is already another profile ahead, this button is "Next" (>)
+if (hasNext) {
+  add.innerText = ">";
+} else {
+  add.innerText = "+";
+}
+
+    // If the button is ">" (next), it must ALWAYS be clickable
+if (hasNext) {
+  add.disabled = false;
+  add.style.opacity = "1";
+  add.style.cursor = "pointer";
+} else {
+  // If the button is "+" (add), obey the max cap
+  add.disabled = !canAdd;
+  add.style.opacity = canAdd ? "1" : "0.4";
+  add.style.cursor = canAdd ? "pointer" : "not-allowed";
+}
+  }
+}
+
+function initProfileButtons() {
+  const prev = document.getElementById("profilePrevBtn");
+  const add = document.getElementById("profileAddBtn");
+
+  if (prev) {
+    prev.addEventListener("click", (e) => {
+      e.preventDefault();
+   // always save current screen into current profile
+    snapshotUIToActiveProfile();
+    // move to previous profile
+    if (scheduleProfileIndex > 0) {
+      scheduleProfileIndex--;
+      loadActiveProfileIntoUI();
+      updateProfileUI();
+    }
+    });
+  }
+
+  if (add) {
+    add.addEventListener("click", (e) => {
+      e.preventDefault();
+            // Always save what’s currently on screen first
+      snapshotUIToActiveProfile();
+
+      // Refresh count from the real source of truth
+      scheduleProfileCount = Array.isArray(schedulesLocal) ? schedulesLocal.length : 1;
+
+      // If a next profile already exists, go forward (this is ">")
+      if (scheduleProfileIndex < (scheduleProfileCount - 1)) {
+        scheduleProfileIndex++;
+        loadActiveProfileIntoUI();
+        updateProfileUI();
+        return;
+      }
+
+      // Otherwise we are on the last profile — this is "+"
+      if (scheduleProfileCount >= SCHEDULE_PROFILE_MAX) return;
+
+      schedulesLocal.push({
+  enabled: true,
+  daysOfWeek: ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
+  times: ["09:00"]
+});
+      scheduleProfileIndex = schedulesLocal.length - 1;
+
+      loadActiveProfileIntoUI();
+      updateProfileUI();
+    });
+  }
+
+  updateProfileUI();
+}
+
+// --- Schedule buttons ---
+const saveBtn = document.getElementById("saveScheduleBtn");
+if (saveBtn) {
+  saveBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    saveSchedule_OLD();
+  });
+}
+
+const clearBtn = document.getElementById("clearScheduleBtn");
+if (clearBtn) {
+  clearBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    clearScheduleUI(); 
+    saveSchedule_OLD();
+  });
+}
+const deleteBtn = document.getElementById("deleteProfileBtn");
+if (deleteBtn) {
+  deleteBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+
+    // Never allow deleting Profile 1
+    if (scheduleProfileIndex === 0) return;
+
+    openConfirm("Delete this profile?", () => {
+      // Delete current profile
+      schedulesLocal.splice(scheduleProfileIndex, 1);
+
+      // Move back one profile
+      scheduleProfileIndex = Math.max(0, scheduleProfileIndex - 1);
+
+      // Mark as dirty
+      markScheduleDirty();
+
+      // Load the profile we landed on
+      loadActiveProfileIntoUI();
+      updateProfileUI();
+
+      // Quiet save
+      fetch("/admin/update-schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profiles: schedulesLocal })
+      }).catch(() => {});
+
+      // Flash "Deleted ✓"
+      const statusEl = document.getElementById("scheduleStatus");
+      if (statusEl) {
+        statusEl.style.display = "block";
+        statusEl.innerText = "Deleted ✓";
+        setTimeout(() => {
+          statusEl.innerText = "";
+          statusEl.style.display = "none";
+        }, 2000);
+      }
+    });
+  });
+}
+
+      refreshUI();
+      refreshStartupUI();
+      refreshSchedulerLiveUI();
+      setInterval(refreshSchedulerLiveUI, 500);
+
+      refreshClockUI();
+      setInterval(refreshClockUI, 1000);
+
+      refreshActivityUI();
+      setInterval(refreshActivityUI, 5000);
+refreshTopicsUI();
+setInterval(refreshTopicsUI, 3000);
+
+      syncAllHeights();
+
+    </script>
+  </body>
+</html>
+
