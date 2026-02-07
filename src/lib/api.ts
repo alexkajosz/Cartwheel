@@ -31,6 +31,7 @@ export const api = {
   getConfig: () => apiFetch<{ config: any; shopifyConnected: boolean }>("/admin/config"),
   getShopifyContext: () => apiFetch<{ connected: boolean; context: any }>("/admin/shopify/context"),
   getShopifyInsights: () => apiFetch<{ connected: boolean; insights: any }>("/admin/shopify/insights"),
+  getShopifyProducts: () => apiFetch<{ connected: boolean; products: any[] }>("/admin/shopify/products"),
   disconnectShopify: () => apiFetch("/admin/shopify/disconnect", { method: "POST" }),
 
   setupAutopopulate: () => apiFetch<{ config: any }>("/admin/setup/autopopulate", { method: "POST" }),
@@ -118,10 +119,10 @@ export const api = {
     }),
 
   toggleTopicGen: () => apiFetch<{ enabled: boolean; topicGen: any }>("/admin/topicgen/toggle", { method: "POST" }),
-  updateTopicGen: (minTopics: number, batchSize: number) =>
+  updateTopicGen: (minTopics: number, batchSize: number, includeProductPosts?: boolean) =>
     apiFetch<{ topicGen: any }>("/admin/topicgen/update", {
       method: "POST",
-      body: JSON.stringify({ minTopics, batchSize }),
+      body: JSON.stringify({ minTopics, batchSize, includeProductPosts }),
     }),
 
   setMode: (mode: 'live' | 'draft') =>
@@ -164,6 +165,16 @@ export const api = {
     apiFetch<{ title: string; articleId: string; isPublished: boolean }>("/admin/testpost", {
       method: "POST",
       body: JSON.stringify({ publish }),
+    }),
+  productPostPreview: (productId: string, angle?: string) =>
+    apiFetch<{ content: string }>("/admin/product-post/preview", {
+      method: "POST",
+      body: JSON.stringify({ productId, angle }),
+    }),
+  productPostPublish: (productId: string, angle?: string, mode: 'live' | 'draft' = 'live') =>
+    apiFetch<{ title: string; articleId: string; isPublished: boolean }>("/admin/product-post/publish", {
+      method: "POST",
+      body: JSON.stringify({ productId, angle, mode }),
     }),
   postSeo: async (topic?: string) => {
     const url = topic ? `/post-seo?topic=${encodeURIComponent(topic)}` : "/post-seo";

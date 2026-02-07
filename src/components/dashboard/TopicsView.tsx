@@ -33,12 +33,28 @@ import type { ContentIntent, Topic } from '@/types';
   const [newTopic, setNewTopic] = useState('');
   const [newIntent, setNewIntent] = useState<ContentIntent>(contentIntentDefault || 'informational');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [products, setProducts] = useState<any[]>([]);
+  const [productId, setProductId] = useState('');
+  const [productAngle, setProductAngle] = useState('');
+  const [productPreview, setProductPreview] = useState('');
+  const [productLoading, setProductLoading] = useState(false);
 
   useEffect(() => {
     if (contentIntentDefault) {
       setNewIntent(contentIntentDefault);
     }
   }, [contentIntentDefault]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.getShopifyProducts();
+        if (res.connected) setProducts(res.products || []);
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
 
   const refreshTopics = async () => {
     const updated = await api.getTopics();
@@ -298,9 +314,99 @@ import type { ContentIntent, Topic } from '@/types';
              </Button>
            </div>
          </div>
-       </div>
-       
-       {/* Topics Tabs */}
+      </div>
+      
+      {/* Product-related post (manual) */}
+      <div className="panel">
+        <div className="panel-header">
+          <h2 className="font-semibold">Product Post (Manual)</h2>
+        </div>
+        <div className="panel-body space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Create a product-related post on demand. These are not auto-generated.
+          </p>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="md:col-span-1">
+              <Label className="text-xs">Product</Label>
+              <Select value={productId} onValueChange={setProductId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a product" />
+                </SelectTrigger>
+                <SelectContent>
+                  {products.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-xs">Angle (optional)</Label>
+              <Input
+                placeholder="e.g., benefits, use cases, comparison, seasonal"
+                value={productAngle}
+                onChange={(e) => setProductAngle(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!productId || productLoading}
+              onClick={async () => {
+                try {
+                  setProductLoading(true);
+                  const res = await api.productPostPreview(productId, productAngle.trim() || undefined);
+                  setProductPreview(res.content || '');
+                } catch (e) {
+                  toast({
+                    title: "Preview failed",
+                    description: String(e),
+                    variant: "destructive",
+                  });
+                } finally {
+                  setProductLoading(false);
+                }
+              }}
+            >
+              {productLoading ? 'Generating...' : 'Generate Preview'}
+            </Button>
+            <Button
+              size="sm"
+              disabled={!productId || productLoading}
+              onClick={async () => {
+                try {
+                  setProductLoading(true);
+                  const res = await api.productPostPublish(productId, productAngle.trim() || undefined, 'live');
+                  toast({
+                    title: "Product post published",
+                    description: res.isPublished ? "Live in Shopify." : "Created as draft.",
+                  });
+                } catch (e) {
+                  toast({
+                    title: "Publish failed",
+                    description: String(e),
+                    variant: "destructive",
+                  });
+                } finally {
+                  setProductLoading(false);
+                }
+              }}
+            >
+              Publish Now
+            </Button>
+          </div>
+          {productPreview && (
+            <div className="rounded-md border border-border bg-muted/20 p-3 max-h-56 overflow-y-auto text-sm whitespace-pre-wrap">
+              {productPreview}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Topics Tabs */}
        <Tabs defaultValue="queue" className="space-y-4">
          <TabsList>
            <TabsTrigger value="queue">

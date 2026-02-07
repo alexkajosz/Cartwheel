@@ -21,6 +21,7 @@ const Index = () => {
     setTimezone,
     setTopicQueue,
     setTopicArchive,
+    setIncludeProductPosts,
     shopifyConnected,
     resetAllLocal,
   } = useAppStore();
@@ -164,6 +165,7 @@ const Index = () => {
             topicAutoGenerate: config.topicGen?.enabled !== false,
             topicBatchSize: Number(config.topicGen?.batchSize ?? 5),
             minimumTopicThreshold: Number(config.topicGen?.minTopics ?? 3),
+            includeProductPosts: !!config.topicGen?.includeProductPosts,
             devMode: {
               bypassBilling: !!config.devMode?.bypassBilling,
               bypassDailyLimit: !!config.devMode?.bypassDailyLimit,
@@ -304,6 +306,7 @@ const Index = () => {
         setPostsToday(postsToday);
         setContentIntentDefault(contentIntentDefault);
         setTimezone(timezone);
+        setIncludeProductPosts(!!config.topicGen?.includeProductPosts);
       } catch {
         // best-effort
       }
@@ -363,7 +366,8 @@ const Index = () => {
     setPostsToday,
     setSchedulerProfiles,
     setContentIntentDefault,
-    setTimezone
+    setTimezone,
+    setIncludeProductPosts
   ]);
 
   useEffect(() => {

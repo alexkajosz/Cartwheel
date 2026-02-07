@@ -42,9 +42,10 @@ interface AppState {
    // Topics state
    topicQueue: Topic[];
    topicArchive: Topic[];
-   topicAutoGenerate: boolean;
-   topicBatchSize: number;
-   minimumTopicThreshold: number;
+  topicAutoGenerate: boolean;
+  topicBatchSize: number;
+  minimumTopicThreshold: number;
+  includeProductPosts: boolean;
    
   // Activity log
   activityLog: LogEntry[];
@@ -97,6 +98,7 @@ interface AppState {
   setTopicArchive: (topics: Topic[]) => void;
   setTopicBatchSize: (size: number) => void;
   setMinimumTopicThreshold: (count: number) => void;
+  setIncludeProductPosts: (enabled: boolean) => void;
    
   addLogEntry: (entry: Omit<LogEntry, 'id' | 'timestamp'>) => void;
   clearActivityLog: () => void;
@@ -148,9 +150,10 @@ interface AppState {
        
        topicQueue: [],
        topicArchive: [],
-       topicAutoGenerate: true,
-   topicBatchSize: 5,
-   minimumTopicThreshold: 3,
+      topicAutoGenerate: true,
+      topicBatchSize: 5,
+      minimumTopicThreshold: 3,
+      includeProductPosts: false,
     
   activityLog: [],
   timezone: '',
@@ -204,6 +207,7 @@ interface AppState {
         topicAutoGenerate: true,
         topicBatchSize: 5,
         minimumTopicThreshold: 3,
+        includeProductPosts: false,
         activityLog: [],
         timezone: '',
         billing: {
@@ -285,6 +289,7 @@ interface AppState {
       setTopicArchive: (topics) => set({ topicArchive: topics }),
       setTopicBatchSize: (size) => set({ topicBatchSize: size }),
       setMinimumTopicThreshold: (count) => set({ minimumTopicThreshold: count }),
+      setIncludeProductPosts: (enabled) => set({ includeProductPosts: !!enabled }),
        
       addLogEntry: (entry) => set((state) => ({
         activityLog: [
@@ -321,6 +326,7 @@ interface AppState {
         topicAutoGenerate: state.topicAutoGenerate,
         topicBatchSize: state.topicBatchSize,
         minimumTopicThreshold: state.minimumTopicThreshold,
+        includeProductPosts: state.includeProductPosts,
         activityLog: state.activityLog,
         devMode: state.devMode,
         timezone: state.timezone,

@@ -841,7 +841,7 @@ function defaultConfig(shopDomain) {
     ],
     schedule: { daysOfWeek: ["Mon"], time: "09:00" },
     topics: [],
-    topicGen: { enabled: true, minTopics: 3, batchSize: 5 },
+    topicGen: { enabled: true, minTopics: 3, batchSize: 5, includeProductPosts: false },
     topicStrategy: "queue",
     topicArchive: [],
     previewCache: {},
@@ -957,6 +957,9 @@ function loadConfig(shopDomain) {
 
       // --- v0.3 defaults: topic generator off until setup completes ---
       cfg.topicGen = cfg.topicGen || {};
+      if (typeof cfg.topicGen.includeProductPosts === "undefined") {
+        cfg.topicGen.includeProductPosts = false;
+      }
       if (cfg._postingBlocked === true) {
         if (typeof cfg.topicGen.enabled === "undefined") cfg.topicGen.enabled = false;
       } else {
@@ -1084,6 +1087,9 @@ function loadConfig(shopDomain) {
 
   // --- v0.3 defaults: topic generator off until setup completes ---
   cfg.topicGen = cfg.topicGen || {};
+  if (typeof cfg.topicGen.includeProductPosts === "undefined") {
+    cfg.topicGen.includeProductPosts = false;
+  }
   if (cfg._postingBlocked === true) {
     if (typeof cfg.topicGen.enabled === "undefined") cfg.topicGen.enabled = false;
   } else {
@@ -1437,13 +1443,363 @@ async function resolveBlogId(cfg, session) {
   return "";
 }
 
+const PRODUCT_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+function normalizeTokens(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+const STOPWORDS = new Set([
+  "the","and","or","for","with","from","your","you","our","a","an","to","of","in","on","by","at","is","are","be","as","it","this","that"
+]);
+
+function scoreProductForTopic(topicTokens, product) {
+  const fields = [
+    product?.title,
+    product?.productType,
+    product?.vendor,
+    Array.isArray(product?.tags) ? product.tags.join(" ") : ""
+  ];
+  const hay = normalizeTokens(fields.join(" "));
+  let score = 0;
+  for (const t of topicTokens) {
+    if (STOPWORDS.has(t)) continue;
+    if (hay.includes(t)) score += 1;
+  }
+  return score;
+}
+
+async function fetchShopifyProducts(session, limit = 100) {
+  const query = `
+    query Products($first: Int!) {
+      shop {
+        primaryDomain { host }
+        myshopifyDomain
+      }
+      products(first: $first) {
+        edges {
+          node {
+            id
+            title
+            handle
+            productType
+            vendor
+            tags
+            onlineStoreUrl
+          }
+        }
+      }
+    }
+  `;
+  const r = await fetch(`https://${session.shopDomain}/admin/api/2025-07/graphql.json`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": session.accessToken
+    },
+    body: JSON.stringify({ query, variables: { first: limit } })
+  });
+  const json = await r.json().catch(() => ({}));
+  if (!r.ok || json.errors) {
+    throw new Error("Shopify request failed");
+  }
+  const shop = json?.data?.shop || null;
+  const host = shop?.primaryDomain?.host || shop?.myshopifyDomain || session.shopDomain;
+  const items = (json?.data?.products?.edges || [])
+    .map(e => e?.node)
+    .filter(Boolean)
+    .map(p => ({
+      id: p.id,
+      title: p.title,
+      handle: p.handle,
+      productType: p.productType,
+      vendor: p.vendor,
+      tags: p.tags || [],
+      url: p.onlineStoreUrl || (host && p.handle ? `https://${host}/products/${p.handle}` : null)
+    }));
+  return items;
+}
+
+async function getProductCatalog(cfg, session) {
+  const cache = cfg?.productCache || null;
+  const now = Date.now();
+  if (cache?.at && Array.isArray(cache?.items)) {
+    const age = now - new Date(cache.at).getTime();
+    if (Number.isFinite(age) && age < PRODUCT_CACHE_TTL_MS) {
+      return cache.items;
+    }
+  }
+  const items = await fetchShopifyProducts(session, 100);
+  cfg.productCache = { at: new Date().toISOString(), items };
+  saveConfig(cfg);
+  return items;
+}
+
+function selectRelatedProducts(topic, products, max = 2) {
+  const tokens = normalizeTokens(topic);
+  if (!tokens.length) return [];
+  const scored = products
+    .map(p => ({ p, score: scoreProductForTopic(tokens, p) }))
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const picked = scored.slice(0, max).map(x => x.p);
+  return picked;
+}
+
+function buildProductLinkHtml(topic, products) {
+  if (!products.length) return "";
+  const links = products
+    .filter(p => p?.url)
+    .map(p => `<a href="${p.url}" target="_blank" rel="noopener noreferrer">${p.title}</a>`);
+  if (!links.length) return "";
+  if (links.length === 1) {
+    return `<p>If you're exploring ${topic}, take a look at ${links[0]}.</p>`;
+  }
+  return `<p>If you're exploring ${topic}, you may also like ${links.join(", ")}.</p>`;
+}
+
+function buildProductLinkMarkdown(topic, products) {
+  if (!products.length) return "";
+  const links = products
+    .filter(p => p?.url)
+    .map(p => `[${p.title}](${p.url})`);
+  if (!links.length) return "";
+  if (links.length === 1) {
+    return `\n\nIf you're exploring ${topic}, take a look at ${links[0]}.`;
+  }
+  return `\n\nIf you're exploring ${topic}, you may also like ${links.join(", ")}.`;
+}
+
+async function computeShopifyInsights(session) {
+  const query = `
+    query Insights {
+      shop {
+        name
+        myshopifyDomain
+        primaryDomain { host }
+        currencyCode
+      }
+
+      products(first: 100) {
+        edges {
+          node {
+            id
+            title
+            productType
+            vendor
+            totalInventory
+            variants(first: 50) {
+              edges {
+                node {
+                  id
+                  price
+                  compareAtPrice
+                  sku
+                }
+              }
+            }
+          }
+        }
+      }
+
+      collections(first: 50) {
+        edges { node { id title } }
+      }
+
+      orders(first: 250, sortKey: PROCESSED_AT, reverse: true)
+        edges {
+          node {
+            id
+            processedAt
+            totalPriceSet { shopMoney { amount currencyCode } }
+            discountCode
+            customer { id }
+            lineItems(first: 50) {
+              edges {
+                node {
+                  title
+                  quantity
+                }
+              }
+            }
+            shippingAddress { countryCodeV2 provinceCode }
+          }
+        }
+    }
+  `;
+
+  const r = await fetch(`https://${session.shopDomain}/admin/api/2025-07/graphql.json`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": session.accessToken
+    },
+    body: JSON.stringify({ query })
+  });
+
+  const json = await r.json().catch(() => ({}));
+  if (!r.ok || json.errors) {
+    throw new Error("Shopify request failed");
+  }
+
+  const shop = json?.data?.shop || null;
+  const products = (json?.data?.products?.edges || []).map(e => e?.node).filter(Boolean);
+  const collections = (json?.data?.collections?.edges || []).map(e => e?.node).filter(Boolean);
+  const orders = (json?.data?.orders?.edges || []).map(e => e?.node).filter(Boolean);
+
+  const productTypes = {};
+  const vendors = {};
+  const pricePoints = [];
+
+  for (const p of products) {
+    const pt = String(p.productType || "").trim();
+    if (pt) productTypes[pt] = (productTypes[pt] || 0) + 1;
+    const v = String(p.vendor || "").trim();
+    if (v) vendors[v] = (vendors[v] || 0) + 1;
+    const variantEdges = p?.variants?.edges || [];
+    for (const ve of variantEdges) {
+      const price = Number(ve?.node?.price);
+      if (Number.isFinite(price)) pricePoints.push(price);
+    }
+  }
+
+  pricePoints.sort((a, b) => a - b);
+  const median = (arr) => {
+    if (!arr.length) return null;
+    const mid = Math.floor(arr.length / 2);
+    return arr.length % 2 ? arr[mid] : (arr[mid - 1] + arr[mid]) / 2;
+  };
+
+  const priceSummary = {
+    min: pricePoints.length ? pricePoints[0] : null,
+    median: median(pricePoints),
+    max: pricePoints.length ? pricePoints[pricePoints.length - 1] : null
+  };
+
+  let orderCount = 0;
+  let revenue = 0;
+  const customersSeen = new Map();
+  const geo = {};
+  const topItems = {};
+  const pairCounts = {};
+  let discountedOrders = 0;
+
+  for (const o of orders) {
+    orderCount += 1;
+    const amt = Number(o?.totalPriceSet?.shopMoney?.amount);
+    if (Number.isFinite(amt)) revenue += amt;
+    if (o?.discountCode) discountedOrders += 1;
+
+    const custId = o?.customer?.id;
+    if (custId) customersSeen.set(custId, (customersSeen.get(custId) || 0) + 1);
+
+    const cc = o?.shippingAddress?.countryCodeV2 || "";
+    const pc = o?.shippingAddress?.provinceCode || "";
+    const key = cc && pc ? `${cc}-${pc}` : (cc || "Unknown");
+    if (key) geo[key] = (geo[key] || 0) + 1;
+
+    const items = (o?.lineItems?.edges || []).map(e => e?.node).filter(Boolean);
+    for (const li of items) {
+      const title = String(li.title || "").trim();
+      if (!title) continue;
+      topItems[title] = (topItems[title] || 0) + Number(li.quantity || 0);
+    }
+
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const a = String(items[i]?.title || "").trim();
+        const b = String(items[j]?.title || "").trim();
+        if (!a || !b) continue;
+        const keyPair = `${a}|||${b}`;
+        pairCounts[keyPair] = (pairCounts[keyPair] || 0) + 1;
+      }
+    }
+  }
+
+  const sortTop = (obj, limit = 8) =>
+    Object.entries(obj)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([k, v]) => ({ name: k, value: v }));
+
+  const topProductsByQty = sortTop(topItems, 12);
+  const topPairs = Object.entries(pairCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 12)
+    .map(([k, v]) => {
+      const [a, b] = k.split("|||");
+      return { a, b, count: v };
+    });
+
+  const geoTop = sortTop(geo, 10);
+  const aov = orderCount > 0 ? revenue / orderCount : null;
+  const repeatRate = (() => {
+    if (!customersSeen.size) return null;
+    let repeat = 0;
+    customersSeen.forEach(v => { if (v > 1) repeat += 1; });
+    return repeat / customersSeen.size;
+  })();
+
+  return {
+    shop: shop ? {
+      name: shop.name,
+      domain: shop.primaryDomain?.host || shop.myshopifyDomain || null,
+      currencyCode: shop.currencyCode || null
+    } : null,
+    catalog: {
+      collections: collections.map(c => ({ id: c.id, title: c.title })),
+      productTypeTop: sortTop(productTypes, 10),
+      vendorTop: sortTop(vendors, 10),
+      priceSummary
+    },
+    orders: {
+      sampleSize: orderCount,
+      revenueSample: Number.isFinite(revenue) ? revenue : null,
+      aov,
+      discountedOrderRate: orderCount > 0 ? (discountedOrders / orderCount) : null,
+      repeatRate,
+      topProductsByQty,
+      topPairs,
+      geoTop
+    }
+  };
+}
+
+async function getShopifyInsightsForPrompt(cfg, session) {
+  const cached = cfg?.businessContext?.shopifyInsights;
+  const at = cfg?.businessContext?.shopifyInsights_at;
+  if (cached && at) {
+    const age = Date.now() - new Date(at).getTime();
+    if (Number.isFinite(age) && age < 24 * 60 * 60 * 1000) {
+      return cached;
+    }
+  }
+  try {
+    const insights = await computeShopifyInsights(session);
+    saveShopifyInsightsSnapshot(session.shopDomain, insights);
+    return insights;
+  } catch {
+    return cached || null;
+  }
+}
+
 async function generateTopics(cfg) {
   const batchSize = cfg.topicGen?.batchSize ?? 10;
+  const includeProductPosts = cfg.topicGen?.includeProductPosts === true;
+  const session = getShopifySession(cfg);
+  const insights = session ? await getShopifyInsightsForPrompt(cfg, session) : (cfg?.businessContext?.shopifyInsights || null);
+  const insightsSummary = insights ? JSON.stringify(insights) : "";
 
   const prompt = `
 Generate ${batchSize} SEO blog topic ideas for a US e-commerce brand called Monroe Mushroom Co.
 We sell functional mushroom products (example: Lionâ€™s Mane gummies).
 Topics should be helpful, not hypey, and avoid medical claims.
+${includeProductPosts ? "Include a few product-focused topics (but keep them subtle)." : "Do NOT include product-specific or promotional topics."}
+${insightsSummary ? `Shopify insights (use for relevance): ${insightsSummary}` : ""}
 Return ONLY valid JSON in this shape:
 { "topics": ["topic 1", "topic 2", "..."] }
 No code fences, no markdown.
@@ -1970,6 +2326,22 @@ app.get("/admin/shopify/context", async (req, res) => {
         collections
       }
     });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
+  }
+});
+
+app.get("/admin/shopify/products", async (req, res) => {
+  try {
+    const ctx = getCfgFromReq(req, res);
+    if (!ctx) return;
+    const cfg = ctx.cfg;
+    const session = getShopifySession(cfg);
+    if (!session) {
+      return res.json({ ok: true, connected: false, products: [] });
+    }
+    const items = await getProductCatalog(cfg, session);
+    return res.json({ ok: true, connected: true, products: items });
   } catch (e) {
     return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
   }
@@ -3290,7 +3662,7 @@ app.post("/admin/reset-all", (req, res) => {
 
     cfg.topics = [];
     cfg.topicArchive = [];
-    cfg.topicGen = { enabled: true, minTopics: 3, batchSize: 5 };
+    cfg.topicGen = { enabled: true, minTopics: 3, batchSize: 5, includeProductPosts: false };
     cfg.topicStrategy = "queue";
     cfg.previewCache = cfg.previewCache || {};
     cfg.contentIntentDefault = "informational";
@@ -3571,6 +3943,7 @@ app.post("/admin/topicgen/update", (req, res) => {
 
     const minTopicsRaw = req.body?.minTopics;
     const batchSizeRaw = req.body?.batchSize;
+    const includeProductPostsRaw = req.body?.includeProductPosts;
 
     const minTopics = Math.max(0, Math.min(1000, Number(minTopicsRaw)));
     const batchSize = Math.max(1, Math.min(30, Number(batchSizeRaw))); // reasonable hard max = 30
@@ -3582,6 +3955,9 @@ app.post("/admin/topicgen/update", (req, res) => {
     cfg.topicGen = cfg.topicGen || {};
     cfg.topicGen.minTopics = minTopics;
     cfg.topicGen.batchSize = batchSize;
+    if (typeof includeProductPostsRaw !== "undefined") {
+      cfg.topicGen.includeProductPosts = !!includeProductPostsRaw;
+    }
 
     saveConfig(cfg);
     (async () => {
@@ -3663,6 +4039,16 @@ app.post("/admin/preview/generate", async (req, res) => {
 
     const topic = String(req.body?.topic || "").trim();
     if (!topic) return res.status(400).json({ ok: false, error: "Missing topic" });
+    const cfg = loadConfig(ctx.shop);
+    const session = getShopifySession(cfg);
+    const insights = session ? await getShopifyInsightsForPrompt(cfg, session) : null;
+    let relatedProducts = [];
+    if (session) {
+      try {
+        const products = await getProductCatalog(cfg, session);
+        relatedProducts = selectRelatedProducts(topic, products, 2);
+      } catch {}
+    }
 
     const prompt = `
 Write a draft SEO blog post for this topic:
@@ -3674,6 +4060,7 @@ Return clean markdown (no code fences). Include:
 - 3-5 headings with short paragraphs
 - A brief FAQ (3 Q/A)
 Keep it helpful and not salesy.
+Shopify insights (use for relevance, no PII): ${JSON.stringify(insights || cfg?.businessContext?.target_customer_facts || {})}
 `.trim();
 
     const r = await fetch("https://api.openai.com/v1/responses", {
@@ -3697,11 +4084,11 @@ Keep it helpful and not salesy.
         "").trim();
 
     if (!text) return res.status(500).json({ ok: false, error: "No content generated" });
-    const cfg = loadConfig(ctx.shop);
+    const appended = `${text}${buildProductLinkMarkdown(topic, relatedProducts)}`;
     cfg.previewCache = cfg.previewCache || {};
-    cfg.previewCache[topic] = text;
+    cfg.previewCache[topic] = appended;
     saveConfig(cfg);
-    return res.json({ ok: true, content: text });
+    return res.json({ ok: true, content: appended });
   } catch (e) {
     return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
   }
@@ -3838,6 +4225,217 @@ Keep it helpful and not salesy.
   }
 });
 
+// Product post: preview (manual-only)
+app.post("/admin/product-post/preview", async (req, res) => {
+  try {
+    const ctx = getCfgFromReq(req, res);
+    if (!ctx) return;
+    if (!OPENAI_API_KEY) return res.status(500).json({ ok: false, error: "Missing OPENAI_API_KEY" });
+    const cfg = loadConfig(ctx.shop);
+    const session = getShopifySession(cfg);
+    if (!session) return res.status(400).json({ ok: false, error: "Shopify not connected" });
+
+    const productId = String(req.body?.productId || "").trim();
+    const angle = String(req.body?.angle || "").trim();
+    if (!productId) return res.status(400).json({ ok: false, error: "Missing productId" });
+
+    const products = await getProductCatalog(cfg, session);
+    const product = products.find(p => p.id === productId);
+    if (!product) return res.status(404).json({ ok: false, error: "Product not found" });
+    const insights = await getShopifyInsightsForPrompt(cfg, session);
+
+    const topic = angle ? `${product.title}: ${angle}` : product.title;
+    const prompt = `
+Write a draft SEO blog post focused on this product:
+Product: ${product.title}
+Type: ${product.productType || "—"}
+Vendor: ${product.vendor || "—"}
+Topic angle: ${angle || "General product education and use cases"}
+
+Return clean markdown (no code fences). Include:
+- Title
+- Short intro
+- 3-5 headings with short paragraphs
+- A brief FAQ (3 Q/A)
+Keep it helpful and not salesy.
+Shopify insights (use for relevance, no PII): ${JSON.stringify(insights || cfg?.businessContext?.target_customer_facts || {})}
+`.trim();
+
+    const r = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        input: prompt,
+        temperature: 0.4,
+        max_output_tokens: 900,
+      }),
+    });
+
+    const data = await r.json().catch(() => ({}));
+    const text =
+      (data.output_text ||
+        data.output?.[0]?.content?.[0]?.text ||
+        "").trim();
+    if (!text) return res.status(500).json({ ok: false, error: "No content generated" });
+
+    const appended = `${text}${buildProductLinkMarkdown(topic, [product])}`;
+    cfg.previewCache = cfg.previewCache || {};
+    cfg.previewCache[`product:${productId}`] = appended;
+    saveConfig(cfg);
+    return res.json({ ok: true, content: appended });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
+  }
+});
+
+// Product post: publish (manual-only)
+app.post("/admin/product-post/publish", async (req, res) => {
+  try {
+    const ctx = getCfgFromReq(req, res);
+    if (!ctx) return;
+    const cfg = loadConfig(ctx.shop);
+    const session = getShopifySession(cfg);
+    if (!session) return res.status(400).json({ ok: false, error: "Shopify not connected" });
+    if (!OPENAI_API_KEY) return res.status(500).json({ ok: false, error: "Missing OPENAI_API_KEY" });
+
+    const productId = String(req.body?.productId || "").trim();
+    const angle = String(req.body?.angle || "").trim();
+    const modeUsed = req.body?.mode === "draft" ? "draft" : "live";
+    if (!productId) return res.status(400).json({ ok: false, error: "Missing productId" });
+
+    const products = await getProductCatalog(cfg, session);
+    const product = products.find(p => p.id === productId);
+    if (!product) return res.status(404).json({ ok: false, error: "Product not found" });
+    const insights = await getShopifyInsightsForPrompt(cfg, session);
+
+    const topic = angle ? `${product.title}: ${angle}` : product.title;
+    const prompt = `
+You are writing for a US e-commerce brand: Monroe Mushroom Co.
+Write an SEO blog post focused on this product:
+Product: ${product.title}
+Type: ${product.productType || "—"}
+Vendor: ${product.vendor || "—"}
+Topic angle: ${angle || "General product education and use cases"}
+
+Return ONLY valid JSON with these keys:
+- title (string)
+- slug (string, lowercase, hyphenated, no special chars)
+- meta_description (string, <= 155 chars)
+- html (string, valid HTML with headings, bullets, short paragraphs)
+
+Guidelines:
+- Be helpful, not hypey. Avoid medical claims.
+- Include a short FAQ section.
+- Mention "Monroe Mushroom Co" naturally once.
+- End with a short, natural call to action inviting readers to explore products on our website.
+Shopify insights (use for relevance, no PII): ${JSON.stringify(insights || cfg?.businessContext?.target_customer_facts || {})}
+`.trim();
+
+    const openaiResp = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        input: prompt,
+      }),
+    });
+
+    const openaiData = await openaiResp.json();
+    const rawText =
+      openaiData.output_text ||
+      openaiData.output?.[0]?.content?.[0]?.text ||
+      "";
+
+    const cleaned = rawText
+      .trim()
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/```$/i, "")
+      .trim();
+
+    let post;
+    try {
+      post = JSON.parse(cleaned);
+    } catch {
+      return res.status(500).json({ ok: false, error: "OpenAI returned non-JSON", raw: cleaned.slice(0, 500) });
+    }
+
+    const relatedHtml = buildProductLinkHtml(topic, [product]);
+    if (relatedHtml) {
+      post.html = `${post.html}\n${relatedHtml}`;
+    }
+
+    const blogId = await resolveBlogId(cfg, session);
+    if (!blogId) return res.status(500).json({ ok: false, error: "Missing blog ID" });
+
+    const shopifyUrl = `https://${session.shopDomain}/admin/api/2025-07/graphql.json`;
+    const mutation = `
+      mutation CreateArticle($article: ArticleCreateInput!) {
+        articleCreate(article: $article) {
+          article { id title handle isPublished }
+          userErrors { code field message }
+        }
+      }
+    `;
+
+    const variables = {
+      article: {
+        blogId,
+        title: post.title,
+        body: post.html,
+        author: { name: AUTHOR_NAME },
+        isPublished: modeUsed === "live",
+        tags: DEFAULT_TAGS,
+      },
+    };
+
+    const r = await fetch(shopifyUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": session.accessToken,
+      },
+      body: JSON.stringify({ query: mutation, variables }),
+    });
+
+    const data = await r.json().catch(() => null);
+    const errs = data?.data?.articleCreate?.userErrors || [];
+    const created = data?.data?.articleCreate?.article;
+
+    if (!r.ok || errs.length > 0 || !created?.id) {
+      return res.status(500).json({
+        ok: false,
+        error: errs.length ? errs.map(e => e.message).join(" | ") : "Product post failed",
+        shopify: data,
+      });
+    }
+
+    logActivity(ctx.shop, {
+      type: "post",
+      source: "manual",
+      mode: modeUsed,
+      title: created.title || "Untitled",
+      published: !!created.isPublished,
+    });
+
+    return res.json({
+      ok: true,
+      title: created.title,
+      articleId: created.id,
+      isPublished: !!created.isPublished,
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
+  }
+});
+
 async function createSeoPost(shopDomain, topicOverride, modeOverride) {
   const cfg = loadConfig(shopDomain);
   const session = getShopifySession(cfg);
@@ -3880,11 +4478,19 @@ if (cfg._postingBlocked === true) {
     };
   }
 
+  let relatedProducts = [];
+  try {
+    const products = await getProductCatalog(cfg, session);
+    relatedProducts = selectRelatedProducts(topicTitle, products, 2);
+  } catch {}
+  const insights = await getShopifyInsightsForPrompt(cfg, session);
+
   // --- 1) Ask OpenAI to write the post (JSON output) ---
   const prompt = `
 You are writing for a US e-commerce brand: Monroe Mushroom Co.
 Write an SEO blog post about: ${topicTitle}
 Intent: ${topicIntent} (informational = educate, commercial = compare/consider, transactional = purchase-focused).
+Shopify insights (use for relevance, no PII): ${JSON.stringify(insights || cfg?.businessContext?.target_customer_facts || {})}
 
 Return ONLY valid JSON with these keys:
 - title (string)
@@ -3930,6 +4536,11 @@ Guidelines:
     post = JSON.parse(cleaned);
   } catch {
     return { skipped: true, reason: "OpenAI returned non-JSON", raw: cleaned.slice(0, 500) };
+  }
+
+  const relatedHtml = buildProductLinkHtml(topicTitle, relatedProducts);
+  if (relatedHtml) {
+    post.html = `${post.html}\n${relatedHtml}`;
   }
 
     // --- 2) Create article in Shopify ---
