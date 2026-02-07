@@ -694,6 +694,11 @@ export function SetupWizard({ open }: SetupWizardProps) {
                       checked={devWizard}
                       onCheckedChange={async (checked) => {
                         try {
+                          setDevMode({
+                            bypassBilling: devBilling,
+                            bypassDailyLimit: devDaily,
+                            bypassSetupWizard: checked,
+                          });
                           const res = await api.setDevMode({
                             bypassBilling: devBilling,
                             bypassDailyLimit: devDaily,
