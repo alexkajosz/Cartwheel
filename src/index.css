@@ -78,6 +78,61 @@
     --brand: 200 80% 45%;
     --brand-foreground: 0 0% 100%;
   }
+
+  .dark {
+    --background: 220 15% 10%;
+    --foreground: 40 20% 96%;
+
+    --card: 220 15% 14%;
+    --card-foreground: 40 20% 96%;
+
+    --popover: 220 15% 14%;
+    --popover-foreground: 40 20% 96%;
+
+    --primary: 40 20% 96%;
+    --primary-foreground: 220 15% 12%;
+
+    --secondary: 220 12% 18%;
+    --secondary-foreground: 40 20% 96%;
+
+    --muted: 220 12% 18%;
+    --muted-foreground: 220 10% 65%;
+
+    --accent: 220 12% 20%;
+    --accent-foreground: 40 20% 96%;
+
+    --success: 152 60% 42%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 95% 55%;
+    --warning-foreground: 220 20% 10%;
+
+    --destructive: 0 72% 58%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 12% 25%;
+    --input: 220 12% 25%;
+    --ring: 40 20% 96%;
+
+    --sidebar-background: 220 15% 10%;
+    --sidebar-foreground: 40 10% 85%;
+    --sidebar-primary: 40 20% 96%;
+    --sidebar-primary-foreground: 220 15% 12%;
+    --sidebar-accent: 220 15% 18%;
+    --sidebar-accent-foreground: 40 10% 90%;
+    --sidebar-border: 220 12% 22%;
+    --sidebar-ring: 40 20% 96%;
+    --sidebar-muted: 220 10% 50%;
+
+    --status-ready: 152 60% 42%;
+    --status-posting: 45 95% 55%;
+    --status-success: 152 60% 42%;
+    --status-failed: 0 72% 58%;
+    --status-paused: 38 95% 55%;
+
+    --brand: 200 80% 55%;
+    --brand-foreground: 220 15% 12%;
+  }
 }
 
 @layer base {
