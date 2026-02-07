@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAppStore } from '@/stores/appStore';
 import { api } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -48,7 +49,7 @@ export function Header({ title, subtitle }: HeaderProps) {
   }, []);
 
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60 * 1000);
+    const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -62,6 +63,17 @@ export function Header({ title, subtitle }: HeaderProps) {
   const clockLabel = new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    hour12: timeFormat === '12',
+    timeZone: timezone || undefined,
+  }).format(now);
+
+  const clockDetail = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
     hour12: timeFormat === '12',
     timeZone: timezone || undefined,
   }).format(now);
@@ -165,10 +177,21 @@ export function Header({ title, subtitle }: HeaderProps) {
             </span>
           </Button>
 
-          <div className="flex items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1.5 text-xs font-medium text-foreground">
-            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>{clockLabel}</span>
-          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+              >
+                <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                <span>{clockLabel}</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64">
+              <div className="text-sm font-medium text-foreground">Local time</div>
+              <div className="mt-1 text-xs text-muted-foreground">{clockDetail}</div>
+            </PopoverContent>
+          </Popover>
 
           <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={toggleTheme}>
             {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
