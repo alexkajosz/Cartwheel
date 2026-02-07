@@ -3,6 +3,14 @@ import { Bell, HelpCircle, Moon, Store, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 import { useAppStore } from '@/stores/appStore';
 import { api } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -13,7 +21,16 @@ import { useToast } from '@/hooks/use-toast';
  }
  
 export function Header({ title, subtitle }: HeaderProps) {
-  const { businessConfig, shopifyConnected, setShopifyConnected, resetAllLocal } = useAppStore();
+  const { 
+    businessConfig, 
+    shopifyConnected, 
+    setShopifyConnected, 
+    resetAllLocal, 
+    billing, 
+    schedulerStatus, 
+    postsToday, 
+    dailyPostLimit 
+  } = useAppStore();
   const { toast } = useToast();
   const [connectOpen, setConnectOpen] = useState(false);
   const [shopDomain, setShopDomain] = useState('');
@@ -33,6 +50,73 @@ export function Header({ title, subtitle }: HeaderProps) {
     document.documentElement.classList.toggle('dark', next);
     localStorage.setItem('theme', next ? 'dark' : 'light');
   };
+
+  const alerts: Array<{
+    id: string;
+    title: string;
+    description: string;
+    actionLabel?: string;
+    onAction?: () => void | Promise<void>;
+  }> = [];
+
+  if (!shopifyConnected) {
+    alerts.push({
+      id: 'shopify-disconnected',
+      title: 'Shopify disconnected',
+      description: 'Reconnect your store to continue publishing.',
+      actionLabel: 'Connect',
+      onAction: () => setConnectOpen(true),
+    });
+  }
+
+  if (billing.required && !billing.devBypass) {
+    alerts.push({
+      id: 'billing-required',
+      title: 'Billing required',
+      description: 'Complete billing to keep posting.',
+      actionLabel: 'Complete billing',
+      onAction: async () => {
+        try {
+          const res = await api.startBilling();
+          if (res?.confirmationUrl) window.location.href = res.confirmationUrl;
+        } catch (e) {
+          toast({
+            title: "Billing failed",
+            description: String(e),
+            variant: "destructive",
+          });
+        }
+      },
+    });
+  }
+
+  if (schedulerStatus === 'paused') {
+    alerts.push({
+      id: 'scheduler-paused',
+      title: 'Scheduler paused',
+      description: 'Turn it back on to resume posting.',
+      actionLabel: 'Resume',
+      onAction: async () => {
+        try {
+          await api.toggleRobot();
+        } catch (e) {
+          toast({
+            title: "Scheduler update failed",
+            description: String(e),
+            variant: "destructive",
+          });
+        }
+      },
+    });
+  }
+
+  if (dailyPostLimit > 0 && postsToday >= dailyPostLimit) {
+    alerts.push({
+      id: 'daily-limit',
+      title: 'Daily limit reached',
+      description: 'Posting will resume tomorrow.',
+    });
+  }
 
   const normalizeShopDomain = (value: string) => {
     let cleaned = String(value || '').trim();
@@ -74,9 +158,49 @@ export function Header({ title, subtitle }: HeaderProps) {
             <HelpCircle className="w-5 h-5" />
           </Button>
           
-          <Button variant="ghost" size="icon" className="text-muted-foreground relative">
-            <Bell className="w-5 h-5" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-muted-foreground relative">
+                <Bell className="w-5 h-5" />
+                {alerts.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
+                    {alerts.length}
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel>Action required</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {alerts.length === 0 ? (
+                <DropdownMenuItem className="text-muted-foreground">
+                  No action required
+                </DropdownMenuItem>
+              ) : (
+                alerts.map((alert) => (
+                  <DropdownMenuItem
+                    key={alert.id}
+                    className="flex items-start gap-3 py-2.5"
+                    onSelect={(e) => {
+                      if (!alert.onAction) return;
+                      e.preventDefault();
+                      alert.onAction();
+                    }}
+                  >
+                    <div className="flex-1 space-y-0.5">
+                      <p className="text-sm font-medium text-foreground">{alert.title}</p>
+                      <p className="text-xs text-muted-foreground">{alert.description}</p>
+                    </div>
+                    {alert.actionLabel && (
+                      <span className="text-xs font-semibold text-primary whitespace-nowrap">
+                        {alert.actionLabel}
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
