@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Cartwheel Design System
+/* duro Design System
    Industrial, calm, reliable, honest
    All colors in HSL format */
 
@@ -74,7 +74,7 @@
     --status-failed: 0 72% 51%;
     --status-paused: 38 95% 50%;
 
-    /* Cartwheel brand accent */
+    /* duro brand accent */
     --brand: 200 80% 45%;
     --brand-foreground: 0 0% 100%;
   }
@@ -259,3 +259,4 @@
     background: hsl(var(--muted-foreground));
   }
 }
+

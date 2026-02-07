@@ -57,7 +57,7 @@ export function AppSidebar({ activeView, onViewChange, onOpenSettings }: AppSide
            <Zap className="w-5 h-5 text-brand-foreground" />
          </div>
          <div>
-           <h1 className="text-base font-semibold text-sidebar-primary">Cartwheel</h1>
+           <h1 className="text-base font-semibold text-sidebar-primary">duro</h1>
            <p className="text-2xs text-sidebar-muted">Content Engine</p>
          </div>
        </div>
@@ -117,3 +117,4 @@ export function AppSidebar({ activeView, onViewChange, onOpenSettings }: AppSide
      </aside>
    );
  }
+

@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
-    allowedHosts: ["cartwheel.monroemushroom.shop"],
+    allowedHosts: ["duro.monroemushroom.shop"],
     proxy: {
       "/admin": { target: "http://localhost:3000", changeOrigin: true },
       "/post-seo": { target: "http://localhost:3000", changeOrigin: true },
@@ -25,3 +25,4 @@ export default defineConfig(({ mode }) => ({
     },
   },
 }));
+

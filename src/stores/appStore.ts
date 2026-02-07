@@ -310,7 +310,7 @@ interface AppState {
     setTimezone: (timezone) => set({ timezone: String(timezone || '') }),
    }),
    {
-     name: 'cartwheel-storage',
+     name: 'duro-storage',
      partialize: (state) => ({
         setupComplete: state.setupComplete,
         shopifyConnected: state.shopifyConnected,
@@ -334,3 +334,4 @@ interface AppState {
     }
   )
 );
+

@@ -1,4 +1,4 @@
-﻿require("dotenv").config();
+require("dotenv").config();
 const fs = require("fs");
 const express = require("express");
 const crypto = require("crypto");
@@ -8,7 +8,7 @@ const { exec } = require("child_process");
 
 const app = express();
 app.set("trust proxy", 1);
-// v0.4.1 â€” Content Intent Types (authoritative, backend truth)
+// v0.4.1 — Content Intent Types (authoritative, backend truth)
 const CONTENT_INTENTS = {
   INFORMATIONAL: "informational",   // educate, explain, answer questions
   COMMERCIAL: "commercial",         // compare, evaluate, buyer guidance
@@ -16,7 +16,7 @@ const CONTENT_INTENTS = {
   NAVIGATIONAL: "navigational"      // brand / internal navigation support
 };
 
-// v0.4 â€” Intent classifier (pure function; NOT wired yet)
+// v0.4 — Intent classifier (pure function; NOT wired yet)
 function classifyContentIntent(topic, businessContext) {
   const t = String(topic || "").toLowerCase();
 
@@ -272,12 +272,28 @@ ${list.slice(0, maxItems).join(" | ")}
 // --- CONFIG ---
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// Shopify OAuth (v0.4+ â†’ v1.0 path)
+// Shopify OAuth (v0.4+ → v1.0 path)
 const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID;
 const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
 const APP_COOKIE_SECRET = process.env.APP_COOKIE_SECRET || SHOPIFY_CLIENT_SECRET || "dev-secret";
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:8080";
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "";
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || "";
+console.log("Resolved base URLs", { PUBLIC_BASE_URL, FRONTEND_ORIGIN });
+
+function isLocalhostUrl(url) {
+  return /localhost|127\.0\.0\.1/i.test(String(url || ""));
+}
+
+function resolveBaseUrl(req) {
+  if (PUBLIC_BASE_URL && !isLocalhostUrl(PUBLIC_BASE_URL)) return PUBLIC_BASE_URL;
+  return `${req.protocol}://${req.get("host")}`;
+}
+
+function resolveFrontendOrigin(req) {
+  if (FRONTEND_ORIGIN && !isLocalhostUrl(FRONTEND_ORIGIN)) return FRONTEND_ORIGIN;
+  if (PUBLIC_BASE_URL && !isLocalhostUrl(PUBLIC_BASE_URL)) return PUBLIC_BASE_URL;
+  return `${req.protocol}://${req.get("host")}`;
+}
 
 // Minimal-but-complete v0.4 scopes (content + products)
 const SHOPIFY_OAUTH_SCOPES = "read_content,write_content,read_products,read_orders,read_customers";
@@ -289,7 +305,7 @@ const DEFAULT_BLOG_ID = String(process.env.BLOG_ID || "");
 const AUTHOR_NAME = "Monroe Mushroom Co";
 const DEFAULT_TAGS = ["seo", "mushrooms"];
 const BILLING_PLAN = {
-  name: "Cartwheel Starter",
+  name: "duro Starter",
   price: 19,
   currency: "USD",
   trialDays: 1
@@ -465,10 +481,11 @@ function signShop(shopDomain) {
 
 function setShopCookie(res, shopDomain, req) {
   const sig = signShop(shopDomain);
-  const secure = req?.headers?.["x-forwarded-proto"] === "https" || req?.secure === true;
-  const sameSite = secure ? "None" : "Lax";
+  const proto = String(req?.headers?.["x-forwarded-proto"] || "").toLowerCase();
+  const isHttps = req?.secure === true || proto === "https" || (PUBLIC_BASE_URL && /^https:\/\//i.test(PUBLIC_BASE_URL));
+  const sameSite = isHttps ? "None" : "Lax";
   const base = `Path=/; SameSite=${sameSite}; Max-Age=${60 * 60 * 24 * 30}`;
-  const secureFlag = secure ? "; Secure" : "";
+  const secureFlag = isHttps ? "; Secure" : "";
   res.setHeader("Set-Cookie", [
     `cw_shop=${encodeURIComponent(shopDomain)}; ${base}${secureFlag}`,
     `cw_sig=${sig}; ${base}${secureFlag}`,
@@ -558,7 +575,7 @@ app.use("/admin", (req, res, next) => {
 });
 
 
-// Settings UI: Test Post button — does NOT count toward daily limits
+// Settings UI: Test Post button � does NOT count toward daily limits
 app.post("/admin/testpost", async (req, res) => {
   try {
     const ctx = getCfgFromReq(req, res);
@@ -631,7 +648,7 @@ app.post("/admin/testpost", async (req, res) => {
   }
 });
 
-// Shopify OAuth start â€” redirects to Shopify authorize page
+// Shopify OAuth start — redirects to Shopify authorize page
 // Usage: /admin/shopify/oauth/start?shop=your-store.myshopify.com
 app.get("/admin/shopify/oauth/start", (req, res) => {
   try {
@@ -661,7 +678,7 @@ app.get("/admin/shopify/oauth/start", (req, res) => {
     };
     saveConfig(cfg);
 
-    const baseUrl = PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
+    const baseUrl = resolveBaseUrl(req);
     const redirectUri = `${baseUrl}${SHOPIFY_OAUTH_CALLBACK_PATH}`;
 
     const authUrl =
@@ -683,7 +700,7 @@ app.get("/admin/shopify/oauth/start", (req, res) => {
   }
 });
 
-// Shopify OAuth callback â€” validates state + HMAC, exchanges code for access token
+// Shopify OAuth callback — validates state + HMAC, exchanges code for access token
 app.get("/admin/shopify/oauth/callback", async (req, res) => {
   try {
     const shop = String(req.query?.shop || "").trim();
@@ -787,7 +804,7 @@ saveConfig(cfg2);
 setShopCookie(res, shop, req);
 
     // Back to UI (frontend app)
-    const redirectBase = FRONTEND_ORIGIN || "/";
+    const redirectBase = resolveFrontendOrigin(req);
     return res.redirect(`${redirectBase}/?shopify=connected`);
   } catch (e) {
     return res.status(500).send(String(e || "OAuth callback failed"));
@@ -1796,7 +1813,7 @@ async function generateTopics(cfg) {
 
   const prompt = `
 Generate ${batchSize} SEO blog topic ideas for a US e-commerce brand called Monroe Mushroom Co.
-We sell functional mushroom products (example: Lionâ€™s Mane gummies).
+We sell functional mushroom products (example: Lion’s Mane gummies).
 Topics should be helpful, not hypey, and avoid medical claims.
 ${includeProductPosts ? "Include a few product-focused topics (but keep them subtle)." : "Do NOT include product-specific or promotional topics."}
 ${insightsSummary ? `Shopify insights (use for relevance): ${insightsSummary}` : ""}
@@ -2161,7 +2178,7 @@ app.post("/admin/billing/start", async (req, res) => {
     if (!session?.accessToken) {
       return res.status(400).json({ ok: false, error: "shopify_not_connected" });
     }
-    const base = PUBLIC_BASE_URL || FRONTEND_ORIGIN || "http://localhost:8080";
+    const base = resolveBaseUrl(req);
     const returnUrl = `${base}/admin/billing/confirm`;
     const confirmationUrl = await createSubscription(session.shopDomain, session.accessToken, returnUrl);
     if (!confirmationUrl) {
@@ -2189,7 +2206,7 @@ app.get("/admin/billing/confirm", async (req, res) => {
       cfg.billing.lastCheckAt = new Date().toISOString();
       saveConfig(cfg);
     }
-    const redirectBase = FRONTEND_ORIGIN || "/";
+    const redirectBase = resolveFrontendOrigin(req);
     return res.redirect(`${redirectBase}/?billing=confirmed`);
   } catch (e) {
     return res.status(500).send(String(e || "Billing confirm failed"));
@@ -2233,7 +2250,7 @@ app.post("/admin/timezone", (req, res) => {
   }
 });
 
-// Shopify context (v0.4 contract) â€” read-only
+// Shopify context (v0.4 contract) — read-only
 app.get("/admin/shopify/context", async (req, res) => {
   try {
     const ctx = getCfgFromReq(req, res);
@@ -2347,7 +2364,7 @@ app.get("/admin/shopify/products", async (req, res) => {
   }
 });
 
-// Shopify insights (v0.4.2) â€” aggregated business/customer snapshot (NO PII)
+// Shopify insights (v0.4.2) — aggregated business/customer snapshot (NO PII)
 app.get("/admin/shopify/insights", async (req, res) => {
   try {
     const ctx = getCfgFromReq(req, res);
@@ -2619,7 +2636,7 @@ app.get("/admin/shopify/insights", async (req, res) => {
   }
 });
 
-// Shopify autopopulate â€” fills setup wizard defaults from Shopify (only if empty)
+// Shopify autopopulate — fills setup wizard defaults from Shopify (only if empty)
 app.post("/admin/setup/autopopulate", async (req, res) => {
   try {
     const ctx = getCfgFromReq(req, res);
@@ -2783,7 +2800,7 @@ app.post("/admin/setup/autopopulate", async (req, res) => {
       }
     }
 
-    // Set setupStep based on whatâ€™s still missing
+    // Set setupStep based on what’s still missing
     const hasName = !!String(cfg.businessContext.business_name || "").trim();
     const hasIndustry = !!String(cfg.businessContext.industry || "").trim();
     const hasProducts = !!String(cfg.businessContext.products_raw || "").trim();
@@ -2804,7 +2821,7 @@ app.post("/admin/setup/autopopulate", async (req, res) => {
   }
 });
 
-// v0.4.2 â€” Target customer suggestion (NO PII). Stores suggestion separately.
+// v0.4.2 — Target customer suggestion (NO PII). Stores suggestion separately.
 // Uses Shopify insights + optional AI (if enabled via body.ai === true).
 app.post("/admin/setup/suggest/target-customer", async (req, res) => {
   try {
@@ -3035,7 +3052,7 @@ Return ONLY valid JSON:
   }
 });
 
-// Shopify disconnect (local logout) â€” clears only the Shopify session
+// Shopify disconnect (local logout) — clears only the Shopify session
 app.post("/admin/shopify/disconnect", (req, res) => {
   try {
     const ctx = getCfgFromReq(req, res);
@@ -3057,7 +3074,7 @@ app.post("/admin/shopify/disconnect", (req, res) => {
   }
 });
 
-// v0.3 setup wizard â€” Step 1: save business_name
+// v0.3 setup wizard — Step 1: save business_name
 app.post("/admin/setup/step1", (req, res) => {
   try {
     const name = String(req.body?.business_name || "").trim();
@@ -3078,7 +3095,7 @@ cfg.businessContext.setupStep = 2;
   }
 });
 
-// v0.3 setup wizard â€” Step 2: save industry
+// v0.3 setup wizard — Step 2: save industry
 app.post("/admin/setup/step2", (req, res) => {
   try {
     const industry = String(req.body?.industry || "").trim();
@@ -3100,8 +3117,8 @@ cfg.businessContext.setupStep = 3;
   }
 });
 
-// v0.3 setup wizard â€” Step 3: save products/services
-// v0.3 setup wizard â€” Step 3: save products/services (+ excluded topics)
+// v0.3 setup wizard — Step 3: save products/services
+// v0.3 setup wizard — Step 3: save products/services (+ excluded topics)
 app.post("/admin/setup/step3", (req, res) => {
   try {
     const raw = String(req.body?.products || "").trim();
@@ -3240,20 +3257,20 @@ Rules:
 - Max 220 characters.
 - Plain language.
 - Prefer: demographic/role + intent/problem + product fit.
-- Do NOT mention "Shopify", "GPT", "AI", or "Cartwheel".
+- Do NOT mention "Shopify", "GPT", "AI", or "duro".
 - Do NOT use quotes.
 
 Business context:
-- Business name: ${businessName || "â€”"}
-- Industry: ${industry || "â€”"}
-- Products/services (owner-entered): ${productsRaw || "â€”"}
+- Business name: ${businessName || "—"}
+- Industry: ${industry || "—"}
+- Products/services (owner-entered): ${productsRaw || "—"}
 
 Shop context (if available):
-- Shop name: ${shopName || "â€”"}
-- Shop domain: ${shopDomain || "â€”"}
-- Recent products: ${productTitles.length ? productTitles.join(", ") : "â€”"}
-- Product types: ${productTypes.length ? productTypes.join(", ") : "â€”"}
-- Collections: ${collectionTitles.length ? collectionTitles.join(", ") : "â€”"}
+- Shop name: ${shopName || "—"}
+- Shop domain: ${shopDomain || "—"}
+- Recent products: ${productTitles.length ? productTitles.join(", ") : "—"}
+- Product types: ${productTypes.length ? productTypes.join(", ") : "—"}
+- Collections: ${collectionTitles.length ? collectionTitles.join(", ") : "—"}
 
 Return ONLY the final Target customer line.
 `.trim();
@@ -3318,7 +3335,7 @@ Return ONLY the final Target customer line.
   }
 });
 
-// v0.3 setup wizard â€” Step 4: save target customer
+// v0.3 setup wizard — Step 4: save target customer
 app.post("/admin/setup/step4", (req, res) => {
   try {
     const target_customer = String(req.body?.target_customer || "").trim();
@@ -3340,7 +3357,7 @@ app.post("/admin/setup/step4", (req, res) => {
   }
 });
 
-// v0.3 setup wizard â€” Step 5: save content goals
+// v0.3 setup wizard — Step 5: save content goals
 app.post("/admin/setup/step5", (req, res) => {
   try {
     const goals = req.body?.goals;
@@ -3369,7 +3386,7 @@ app.post("/admin/setup/step5", (req, res) => {
   }
 });
 
-// v0.3 setup wizard â€” Step 6: save content intent default
+// v0.3 setup wizard — Step 6: save content intent default
 app.post("/admin/setup/intent", (req, res) => {
   try {
     const intent = normalizeContentIntent(req.body?.intent || "informational");
@@ -3390,7 +3407,7 @@ app.post("/admin/setup/intent", (req, res) => {
   }
 });
 
-// v0.3 setup wizard â€” Step 7: save posting tone
+// v0.3 setup wizard — Step 7: save posting tone
 app.post("/admin/setup/step6", (req, res) => {
   try {
     const tone = String(req.body?.tone || "").trim();
@@ -3412,7 +3429,7 @@ app.post("/admin/setup/step6", (req, res) => {
   }
 });
 
-// v0.3 setup wizard â€” Back: step-1 (min 1)
+// v0.3 setup wizard — Back: step-1 (min 1)
 app.post("/admin/setup/back", (req, res) => {
   try {
     const ctx = getCfgFromReq(req, res);
@@ -3482,7 +3499,7 @@ cfg.excludedTopics = [];
   }
 });
 
-// v0.3 setup wizard â€” Finish: mark business context initialized (authoritative)
+// v0.3 setup wizard — Finish: mark business context initialized (authoritative)
 app.post("/admin/setup/finish", (req, res) => {
   try {
     const ctx = getCfgFromReq(req, res);
@@ -3556,7 +3573,7 @@ app.get("/admin/activity", (req, res) => {
   res.json({ ok: true, activity });
 });
 
-// System log (long-term) â€” read-only
+// System log (long-term) — read-only
 app.get("/admin/system-log", (req, res) => {
   try {
     const ctx = getCfgFromReq(req, res);
@@ -4019,7 +4036,7 @@ app.post("/admin/topics/clear-archive", (req, res) => {
   cfg.topicArchive = [];
   saveConfig(cfg);
 
-  // optional: log it so itâ€™s visible in Recent Activity
+  // optional: log it so it’s visible in Recent Activity
   logActivity(ctx.shop, {
     type: "archive_clear",
     source: "manual",
@@ -4248,8 +4265,8 @@ app.post("/admin/product-post/preview", async (req, res) => {
     const prompt = `
 Write a draft SEO blog post focused on this product:
 Product: ${product.title}
-Type: ${product.productType || "—"}
-Vendor: ${product.vendor || "—"}
+Type: ${product.productType || "�"}
+Vendor: ${product.vendor || "�"}
 Topic angle: ${angle || "General product education and use cases"}
 
 Return clean markdown (no code fences). Include:
@@ -4317,8 +4334,8 @@ app.post("/admin/product-post/publish", async (req, res) => {
 You are writing for a US e-commerce brand: Monroe Mushroom Co.
 Write an SEO blog post focused on this product:
 Product: ${product.title}
-Type: ${product.productType || "—"}
-Vendor: ${product.vendor || "—"}
+Type: ${product.productType || "�"}
+Vendor: ${product.vendor || "�"}
 Topic angle: ${angle || "General product education and use cases"}
 
 Return ONLY valid JSON with these keys:
@@ -4714,7 +4731,7 @@ function startScheduler() {
         if (cfg.topicGen?.enabled) {
           const minTopics = cfg.topicGen.minTopics ?? 3;
           if ((cfg.topics?.length ?? 0) <= minTopics) {
-            console.log(`TopicGen (${shop}): low topics — generating more...`);
+            console.log(`TopicGen (${shop}): low topics � generating more...`);
             const newTopics = await generateTopics(cfg);
             if (newTopics.length > 0) {
               cfg.topics = Array.isArray(cfg.topics) ? cfg.topics : [];
@@ -4736,7 +4753,7 @@ function startScheduler() {
         const dueProfiles = getAllDueProfileIndexesNow(cfg, nowParts);
 
         if (dueProfiles.length > 0) {
-          console.log(`Scheduler (${shop}): time hit — creating ${dueProfiles.length} post(s)...`);
+          console.log(`Scheduler (${shop}): time hit � creating ${dueProfiles.length} post(s)...`);
           schedulerStatusByShop.set(shop, "posting");
 
           for (let di = 0; di < dueProfiles.length; di++) {
@@ -4944,6 +4961,7 @@ process.on("SIGINT", () => {
   logSystem("global", { type: "robot_stop", reason: "SIGINT" });
   process.exit(0);
 });
+
 
 
 

@@ -1,4 +1,4 @@
- // Cartwheel Type Definitions
+ // duro Type Definitions
  
  export type SetupStatus = 'incomplete' | 'in_progress' | 'complete';
  
@@ -73,3 +73,4 @@ export interface SchedulerProfile {
    title: string;
    description: string;
  }
+

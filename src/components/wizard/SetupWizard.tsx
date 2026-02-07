@@ -519,7 +519,7 @@ export function SetupWizard({ open }: SetupWizardProps) {
         });
         toast({
           title: "Setup complete!",
-          description: "Cartwheel is ready to generate content.",
+          description: "duro is ready to generate content.",
         });
       } catch (e) {
         toast({
@@ -1151,3 +1151,4 @@ export function SetupWizard({ open }: SetupWizardProps) {
      </Dialog>
    );
  }
+
