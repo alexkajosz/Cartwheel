@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, Clock, Calendar, AlertTriangle } from 'lucide-react';
- import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
  import { Label } from '@/components/ui/label';
@@ -118,6 +119,17 @@ import type { SchedulerProfile, ScheduleTime } from '@/types';
   const to24Hour = (hour12: number, ampm: 'AM' | 'PM') => {
     const normalized = hour12 % 12;
     return ampm === 'AM' ? normalized : normalized + 12;
+  };
+
+  const from24Hour = (hour24: number) => {
+    const hour12 = hour24 % 12 || 12;
+    const ampm: 'AM' | 'PM' = hour24 >= 12 ? 'PM' : 'AM';
+    return { hour12, ampm };
+  };
+
+  const wrap = (value: number, min: number, max: number) => {
+    const range = max - min + 1;
+    return ((value - min + range) % range) + min;
   };
    
    const handleRemoveTime = (profileId: string, timeIndex: number) => {
@@ -328,61 +340,143 @@ import type { SchedulerProfile, ScheduleTime } from '@/types';
                             className="flex items-center gap-2 bg-muted px-3 py-2 rounded-md"
                           >
                             <Clock className="w-3 h-3 text-muted-foreground" />
-                            {timeFormat === '24' ? (
-                              <select
-                                value={time.hour}
-                                onChange={(e) => handleUpdateTime(profile.id, index, 'hour', parseInt(e.target.value))}
-                                className="bg-transparent text-sm font-medium text-foreground focus:outline-none"
-                              >
-                                {Array.from({ length: 24 }, (_, i) => (
-                                  <option key={i} value={i}>
-                                    {i.toString().padStart(2, '0')}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <>
-                                <select
-                                  value={time.hour % 12 || 12}
-                                  onChange={(e) => {
-                                    const hour12 = parseInt(e.target.value);
-                                    const ampm = time.hour >= 12 ? 'PM' : 'AM';
-                                    handleUpdateTime(profile.id, index, 'hour', to24Hour(hour12, ampm));
-                                  }}
-                                  className="bg-transparent text-sm font-medium text-foreground focus:outline-none"
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="text-sm font-medium text-foreground hover:text-foreground/90"
                                 >
-                                  {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
-                                    <option key={h} value={h}>
-                                      {h.toString().padStart(2, '0')}
-                                    </option>
-                                  ))}
-                                </select>
-                                <select
-                                  value={time.hour >= 12 ? 'PM' : 'AM'}
-                                  onChange={(e) => {
-                                    const ampm = e.target.value as 'AM' | 'PM';
-                                    const hour12 = time.hour % 12 || 12;
-                                    handleUpdateTime(profile.id, index, 'hour', to24Hour(hour12, ampm));
-                                  }}
-                                  className="bg-transparent text-xs font-semibold text-muted-foreground focus:outline-none"
-                                >
-                                  <option value="AM">AM</option>
-                                  <option value="PM">PM</option>
-                                </select>
-                              </>
-                            )}
-                            <span>:</span>
-                            <select
-                              value={time.minute}
-                              onChange={(e) => handleUpdateTime(profile.id, index, 'minute', parseInt(e.target.value))}
-                              className="bg-transparent text-sm font-medium text-foreground focus:outline-none"
-                            >
-                              {Array.from({ length: 60 }, (_, m) => (
-                                <option key={m} value={m}>
-                                  {m.toString().padStart(2, '0')}
-                                </option>
-                              ))}
-                            </select>
+                                  {formatTime(time)}
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent align="start" className="w-auto p-3">
+                                <div className="flex items-start gap-3">
+                                  {/* Hour */}
+                                  <div className="flex flex-col items-center gap-2">
+                                    <span className="text-2xs text-muted-foreground">Hour</span>
+                                    <input
+                                      value={timeFormat === '24' ? String(time.hour).padStart(2, '0') : String(from24Hour(time.hour).hour12).padStart(2, '0')}
+                                      onChange={(e) => {
+                                        const raw = parseInt(e.target.value || '0', 10);
+                                        if (Number.isNaN(raw)) return;
+                                        if (timeFormat === '24') {
+                                          handleUpdateTime(profile.id, index, 'hour', wrap(raw, 0, 23));
+                                        } else {
+                                          const { ampm } = from24Hour(time.hour);
+                                          handleUpdateTime(profile.id, index, 'hour', to24Hour(wrap(raw, 1, 12), ampm));
+                                        }
+                                      }}
+                                      className="w-12 rounded-md border border-border bg-background text-center text-xs font-semibold text-foreground"
+                                    />
+                                    <div
+                                      className="max-h-36 w-14 overflow-y-auto rounded-md border border-border bg-background"
+                                      onWheel={(e) => {
+                                        e.preventDefault();
+                                        const dir = e.deltaY > 0 ? 1 : -1;
+                                        if (timeFormat === '24') {
+                                          handleUpdateTime(profile.id, index, 'hour', wrap(time.hour + dir, 0, 23));
+                                        } else {
+                                          const { hour12, ampm } = from24Hour(time.hour);
+                                          handleUpdateTime(profile.id, index, 'hour', to24Hour(wrap(hour12 + dir, 1, 12), ampm));
+                                        }
+                                      }}
+                                    >
+                                      {(timeFormat === '24'
+                                        ? Array.from({ length: 24 }, (_, i) => i)
+                                        : Array.from({ length: 12 }, (_, i) => i + 1)
+                                      ).map((h) => {
+                                        const selected = timeFormat === '24'
+                                          ? time.hour === h
+                                          : from24Hour(time.hour).hour12 === h;
+                                        return (
+                                          <button
+                                            key={h}
+                                            type="button"
+                                            onClick={() => {
+                                              if (timeFormat === '24') {
+                                                handleUpdateTime(profile.id, index, 'hour', h);
+                                              } else {
+                                                const { ampm } = from24Hour(time.hour);
+                                                handleUpdateTime(profile.id, index, 'hour', to24Hour(h, ampm));
+                                              }
+                                            }}
+                                            className={`block w-full px-2 py-1 text-xs ${selected ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+                                          >
+                                            {String(h).padStart(2, '0')}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  {/* Minute */}
+                                  <div className="flex flex-col items-center gap-2">
+                                    <span className="text-2xs text-muted-foreground">Min</span>
+                                    <input
+                                      value={String(time.minute).padStart(2, '0')}
+                                      onChange={(e) => {
+                                        const raw = parseInt(e.target.value || '0', 10);
+                                        if (Number.isNaN(raw)) return;
+                                        handleUpdateTime(profile.id, index, 'minute', wrap(raw, 0, 59));
+                                      }}
+                                      className="w-12 rounded-md border border-border bg-background text-center text-xs font-semibold text-foreground"
+                                    />
+                                    <div
+                                      className="max-h-36 w-14 overflow-y-auto rounded-md border border-border bg-background"
+                                      onWheel={(e) => {
+                                        e.preventDefault();
+                                        const dir = e.deltaY > 0 ? 1 : -1;
+                                        handleUpdateTime(profile.id, index, 'minute', wrap(time.minute + dir, 0, 59));
+                                      }}
+                                    >
+                                      {Array.from({ length: 60 }, (_, m) => (
+                                        <button
+                                          key={m}
+                                          type="button"
+                                          onClick={() => handleUpdateTime(profile.id, index, 'minute', m)}
+                                          className={`block w-full px-2 py-1 text-xs ${time.minute === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+                                        >
+                                          {String(m).padStart(2, '0')}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {/* AM/PM */}
+                                  {timeFormat === '12' && (
+                                    <div className="flex flex-col items-center gap-2">
+                                      <span className="text-2xs text-muted-foreground">AM/PM</span>
+                                      <div
+                                        className="max-h-36 w-14 overflow-y-auto rounded-md border border-border bg-background"
+                                        onWheel={(e) => {
+                                          e.preventDefault();
+                                          const { hour12, ampm } = from24Hour(time.hour);
+                                          const next = ampm === 'AM' ? 'PM' : 'AM';
+                                          handleUpdateTime(profile.id, index, 'hour', to24Hour(hour12, next));
+                                        }}
+                                      >
+                                        {(['AM', 'PM'] as const).map((label) => {
+                                          const selected = from24Hour(time.hour).ampm === label;
+                                          return (
+                                            <button
+                                              key={label}
+                                              type="button"
+                                              onClick={() => {
+                                                const { hour12 } = from24Hour(time.hour);
+                                                handleUpdateTime(profile.id, index, 'hour', to24Hour(hour12, label));
+                                              }}
+                                              className={`block w-full px-2 py-1 text-xs ${selected ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+                                            >
+                                              {label}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                            {profile.times.length > 1 && (
                              <button
                                onClick={() => handleRemoveTime(profile.id, index)}
