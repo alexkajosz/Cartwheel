@@ -77,6 +77,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [topicIncludeProducts, setTopicIncludeProducts] = useState(false);
   const [devBilling, setDevBilling] = useState(devMode.bypassBilling);
   const [devDaily, setDevDaily] = useState(devMode.bypassDailyLimit);
+  const [systemLogLines, setSystemLogLines] = useState<string[]>([]);
+  const [loadingSystemLog, setLoadingSystemLog] = useState(false);
 
   const normalizeShopDomain = (value: string) => {
     let cleaned = String(value || '').trim();
@@ -97,6 +99,22 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     setDevBilling(devMode.bypassBilling);
     setDevDaily(devMode.bypassDailyLimit);
   }, [devMode.bypassBilling, devMode.bypassDailyLimit]);
+
+  const loadSystemLog = async () => {
+    try {
+      setLoadingSystemLog(true);
+      const res = await api.getSystemLog();
+      setSystemLogLines(res.lines || []);
+    } catch (e) {
+      toast({
+        title: "System log failed",
+        description: String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingSystemLog(false);
+    }
+  };
    
   const parseList = (value: string) =>
     String(value || '')
@@ -712,6 +730,30 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         }}
                       />
                     </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="panel-body space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">System Log</p>
+                      <p className="text-xs text-muted-foreground">
+                        Records every action and response for this shop.
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadSystemLog}
+                      disabled={loadingSystemLog}
+                    >
+                      {loadingSystemLog ? 'Loading...' : 'Refresh'}
+                    </Button>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto rounded-md border border-border bg-muted/20 p-3 text-xs whitespace-pre-wrap">
+                    {systemLogLines.length > 0 ? systemLogLines.join("\n") : "No log entries yet."}
                   </div>
                 </div>
               </div>
