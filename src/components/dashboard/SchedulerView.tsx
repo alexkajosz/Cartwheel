@@ -313,34 +313,34 @@ import type { SchedulerProfile, ScheduleTime } from '@/types';
                      </div>
                      <div className="flex flex-wrap gap-2">
                        {profile.times.map((time, index) => (
-                         <div 
-                           key={index}
-                           className="flex items-center gap-2 bg-muted px-3 py-2 rounded-md"
-                         >
-                           <Clock className="w-3 h-3 text-muted-foreground" />
-                           <select
-                             value={time.hour}
-                             onChange={(e) => handleUpdateTime(profile.id, index, 'hour', parseInt(e.target.value))}
-                             className="bg-transparent text-sm font-medium focus:outline-none"
-                           >
-                             {Array.from({ length: 24 }, (_, i) => (
-                               <option key={i} value={i}>
-                                 {i.toString().padStart(2, '0')}
-                               </option>
-                             ))}
-                           </select>
-                           <span>:</span>
-                           <select
-                             value={time.minute}
-                             onChange={(e) => handleUpdateTime(profile.id, index, 'minute', parseInt(e.target.value))}
-                             className="bg-transparent text-sm font-medium focus:outline-none"
-                           >
-                             {[0, 15, 30, 45].map((m) => (
-                               <option key={m} value={m}>
-                                 {m.toString().padStart(2, '0')}
-                               </option>
-                             ))}
-                           </select>
+                          <div 
+                            key={index}
+                            className="flex items-center gap-2 bg-muted px-3 py-2 rounded-md"
+                          >
+                            <Clock className="w-3 h-3 text-muted-foreground" />
+                            <select
+                              value={time.hour}
+                              onChange={(e) => handleUpdateTime(profile.id, index, 'hour', parseInt(e.target.value))}
+                              className="bg-transparent text-sm font-medium text-foreground focus:outline-none"
+                            >
+                              {Array.from({ length: 24 }, (_, i) => (
+                                <option key={i} value={i}>
+                                  {i.toString().padStart(2, '0')}
+                                </option>
+                              ))}
+                            </select>
+                            <span>:</span>
+                            <select
+                              value={time.minute}
+                              onChange={(e) => handleUpdateTime(profile.id, index, 'minute', parseInt(e.target.value))}
+                              className="bg-transparent text-sm font-medium text-foreground focus:outline-none"
+                            >
+                              {Array.from({ length: 60 }, (_, m) => (
+                                <option key={m} value={m}>
+                                  {m.toString().padStart(2, '0')}
+                                </option>
+                              ))}
+                            </select>
                            {profile.times.length > 1 && (
                              <button
                                onClick={() => handleRemoveTime(profile.id, index)}
