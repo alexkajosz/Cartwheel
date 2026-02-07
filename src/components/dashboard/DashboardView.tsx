@@ -106,22 +106,6 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
     }
   }, [clockNow, effectiveTimezone, timeFormat]);
 
-  const nextScheduleLabel = useMemo(() => {
-    if (!nextSchedule) return '';
-    try {
-      return new Intl.DateTimeFormat('en-US', {
-        timeZone: effectiveTimezone,
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: timeFormat === '12',
-      }).format(nextSchedule.when);
-    } catch {
-      return format(nextSchedule.when, timeFormat === '24' ? 'MMM d, HH:mm' : 'MMM d, h:mm a');
-    }
-  }, [nextSchedule, effectiveTimezone, timeFormat]);
-
   const nextSchedule = useMemo(() => {
     if (schedulerProfiles.length === 0) return null;
     const now = new Date();
@@ -145,6 +129,22 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
     }
     return best;
   }, [schedulerProfiles]);
+
+  const nextScheduleLabel = useMemo(() => {
+    if (!nextSchedule) return '';
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: effectiveTimezone,
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: timeFormat === '12',
+      }).format(nextSchedule.when);
+    } catch {
+      return format(nextSchedule.when, timeFormat === '24' ? 'MMM d, HH:mm' : 'MMM d, h:mm a');
+    }
+  }, [nextSchedule, effectiveTimezone, timeFormat]);
 
   useEffect(() => {
     if (previewIndex > Math.max(nextTopics.length - 1, 0)) {
