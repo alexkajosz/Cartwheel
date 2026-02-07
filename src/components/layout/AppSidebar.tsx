@@ -2,11 +2,10 @@
    LayoutDashboard, 
    Calendar, 
    FileText, 
-   Activity, 
-   Settings, 
-   Store,
-   Zap
- } from 'lucide-react';
+  Activity, 
+  Settings, 
+  Store
+} from 'lucide-react';
  import { cn } from '@/lib/utils';
  import { useAppStore } from '@/stores/appStore';
  
@@ -52,10 +51,10 @@ export function AppSidebar({ activeView, onViewChange, onOpenSettings }: AppSide
    return (
      <aside className="flex flex-col w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
        {/* Logo */}
-       <div className="flex items-center gap-3 px-5 py-5 border-b border-sidebar-border">
-         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-brand">
-           <Zap className="w-5 h-5 text-brand-foreground" />
-         </div>
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-sidebar-border">
+          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-brand overflow-hidden">
+            <img src="/duro_logo.png" alt="duro logo" className="w-full h-full object-contain" />
+          </div>
          <div>
            <h1 className="text-base font-semibold text-sidebar-primary">duro</h1>
            <p className="text-2xs text-sidebar-muted">Content Engine</p>
