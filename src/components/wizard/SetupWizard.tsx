@@ -665,10 +665,10 @@ export function SetupWizard({ open }: SetupWizardProps) {
                      }}
                    />
                  </label>
-                 <label className="flex items-center justify-between rounded-md border border-destructive/40 bg-background px-3 py-2 text-sm">
-                   <span>Bypass daily post limit</span>
-                   <Switch
-                     checked={devDaily}
+                  <label className="flex items-center justify-between rounded-md border border-destructive/40 bg-background px-3 py-2 text-sm">
+                    <span>Bypass daily post limit</span>
+                    <Switch
+                      checked={devDaily}
                      onCheckedChange={async (checked) => {
                        try {
                          setDevDaily(checked);
@@ -685,11 +685,33 @@ export function SetupWizard({ open }: SetupWizardProps) {
                        } catch {
                          // ignore
                        }
-                     }}
-                   />
-                 </label>
-               </div>
-             </div>
+                      }}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between rounded-md border border-destructive/40 bg-background px-3 py-2 text-sm">
+                    <span>Bypass setup wizard</span>
+                    <Switch
+                      checked={devWizard}
+                      onCheckedChange={async (checked) => {
+                        try {
+                          const res = await api.setDevMode({
+                            bypassBilling: devBilling,
+                            bypassDailyLimit: devDaily,
+                            bypassSetupWizard: checked,
+                          });
+                          setDevMode({
+                            bypassBilling: !!res.devMode?.bypassBilling,
+                            bypassDailyLimit: !!res.devMode?.bypassDailyLimit,
+                            bypassSetupWizard: !!res.devMode?.bypassSetupWizard,
+                          });
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
            </div>
          );
          
