@@ -189,6 +189,7 @@ export function Header({ title, subtitle }: HeaderProps) {
             </PopoverTrigger>
             <PopoverContent align="end" className="w-64">
               <div className="text-sm font-medium text-foreground">Local time</div>
+              <div className="mt-2 text-lg font-semibold text-foreground">{clockLabel}</div>
               <div className="mt-1 text-xs text-muted-foreground">{clockDetail}</div>
               <div className="mt-2 text-xs text-muted-foreground">
                 Timezone: {timezone || Intl.DateTimeFormat().resolvedOptions().timeZone}
