@@ -16,15 +16,18 @@
    SelectTrigger, 
    SelectValue 
  } from '@/components/ui/select';
- import { useAppStore } from '@/stores/appStore';
+import { useAppStore } from '@/stores/appStore';
+import { api } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
  import { format, subDays, startOfMonth, isAfter } from 'date-fns';
  import type { LogEntry, LogEntryType } from '@/types';
  
  type FilterPeriod = '7d' | '30d' | 'mtd' | 'all';
  
- export function ActivityView() {
-   const { activityLog, clearActivityLog } = useAppStore();
-   const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>('7d');
+export function ActivityView() {
+  const { activityLog, clearActivityLog } = useAppStore();
+  const { toast } = useToast();
+  const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>('7d');
    const [filterType, setFilterType] = useState<LogEntryType | 'all'>('all');
    
    const getFilterDate = () => {
@@ -119,13 +122,28 @@
                <span className="text-sm text-muted-foreground">
                  {filteredLogs.length} entries
                </span>
-               {activityLog.length > 0 && (
-                 <Button
-                   variant="outline"
-                   size="sm"
-                   onClick={clearActivityLog}
-                   className="text-muted-foreground hover:text-destructive"
-                 >
+                {activityLog.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await api.clearActivity();
+                        clearActivityLog();
+                        toast({
+                          title: "Activity cleared",
+                          description: "All activity entries were removed.",
+                        });
+                      } catch (e) {
+                        toast({
+                          title: "Clear failed",
+                          description: String(e),
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
                    <Trash2 className="w-4 h-4 mr-1" />
                    Clear All
                  </Button>

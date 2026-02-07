@@ -418,6 +418,31 @@ import type { ContentIntent, Topic } from '@/types';
          </TabsList>
          
          <TabsContent value="queue">
+           <div className="flex items-center justify-end gap-2 mb-3">
+             <Button
+               variant="outline"
+               size="sm"
+               disabled={topicQueue.length === 0}
+               onClick={async () => {
+                 try {
+                   await api.clearTopicQueue();
+                   setTopicQueue([]);
+                   toast({
+                     title: "Queue cleared",
+                     description: "All queued topics were removed.",
+                   });
+                 } catch (e) {
+                   toast({
+                     title: "Clear failed",
+                     description: String(e),
+                     variant: "destructive",
+                   });
+                 }
+               }}
+             >
+               Clear Queue
+             </Button>
+           </div>
            {topicQueue.length > 0 ? (
              <div className="panel">
                <div className="divide-y divide-border">

@@ -3573,6 +3573,21 @@ app.get("/admin/activity", (req, res) => {
   res.json({ ok: true, activity });
 });
 
+app.post("/admin/activity/clear", (req, res) => {
+  const ctx = getCfgFromReq(req, res);
+  if (!ctx) return;
+  try {
+    if (dbEnabled()) {
+      try { dbClearActivity(ctx.shop); } catch {}
+    } else {
+      try { fs.writeFileSync(activityPathFor(ctx.shop), "[]", "utf-8"); } catch {}
+    }
+    return res.json({ ok: true });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e || "Clear failed") });
+  }
+});
+
 // System log (long-term) — read-only
 app.get("/admin/system-log", (req, res) => {
   try {

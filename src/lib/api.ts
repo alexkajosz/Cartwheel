@@ -140,6 +140,7 @@ export const api = {
 
   getSchedulerStatus: () => apiFetch<{ schedulerStatus: string }>("/admin/scheduler-status"),
   getActivity: () => apiFetch<{ activity: any[] }>("/admin/activity"),
+  clearActivity: () => apiFetch<{ ok: boolean }>("/admin/activity/clear", { method: "POST" }),
   getBillingStatus: () => apiFetch<{ status: string; trialEndsAt: string | null; active: boolean; required: boolean; confirmationUrl?: string | null; devBypass?: boolean }>("/admin/billing/status"),
   startBilling: () => apiFetch<{ confirmationUrl: string }>("/admin/billing/start", { method: "POST" }),
   setDevMode: (mode: { bypassBilling: boolean; bypassDailyLimit: boolean }) =>

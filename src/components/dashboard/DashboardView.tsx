@@ -40,6 +40,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
     postsToday,
     dailyPostLimit,
     timezone,
+    timeFormat,
     schedulerProfiles,
     setTopicQueue,
     setTopicArchive
@@ -98,11 +99,28 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         timeZone: effectiveTimezone,
         hour: 'numeric',
         minute: '2-digit',
+        hour12: timeFormat === '12',
       }).format(clockNow);
     } catch {
-      return format(clockNow, 'h:mm a');
+      return format(clockNow, timeFormat === '24' ? 'HH:mm' : 'h:mm a');
     }
-  }, [clockNow, effectiveTimezone]);
+  }, [clockNow, effectiveTimezone, timeFormat]);
+
+  const nextScheduleLabel = useMemo(() => {
+    if (!nextSchedule) return '';
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: effectiveTimezone,
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: timeFormat === '12',
+      }).format(nextSchedule.when);
+    } catch {
+      return format(nextSchedule.when, timeFormat === '24' ? 'MMM d, HH:mm' : 'MMM d, h:mm a');
+    }
+  }, [nextSchedule, effectiveTimezone, timeFormat]);
 
   const nextSchedule = useMemo(() => {
     if (schedulerProfiles.length === 0) return null;
@@ -272,9 +290,9 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                 {nextSchedule ? (
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Next scheduled post</p>
-                    <p className="text-sm font-medium">
-                      {format(nextSchedule.when, 'MMM d, h:mm a')}
-                    </p>
+                      <p className="text-sm font-medium">
+                        {nextScheduleLabel}
+                      </p>
                     <p className="text-xs text-muted-foreground">
                       {nextTopics[0]?.title ? nextTopics[0].title : 'No topic queued'}
                     </p>
@@ -392,6 +410,21 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                   onClick={() => onNavigate('topics')}
                 >
                   Add Topics
+                  <ArrowRight className="w-3 h-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-between"
+                  onClick={() => {
+                    onNavigate('topics');
+                    toast({
+                      title: "Generate a product post",
+                      description: "Choose a product in Topics to generate a product post.",
+                    });
+                  }}
+                >
+                  Generate Product Post
                   <ArrowRight className="w-3 h-3" />
                 </Button>
                 <Button
