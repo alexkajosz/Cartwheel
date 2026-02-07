@@ -129,7 +129,7 @@ export function Header({ title, subtitle }: HeaderProps) {
   
   return (
     <>
-      <header className="flex items-center justify-between px-8 py-5 border-b border-border bg-card">
+      <header className="flex items-center justify-between px-8 h-[var(--app-header-h)] border-b border-border bg-card">
         <div>
           <h1 className="text-xl font-semibold text-foreground">{title}</h1>
           {subtitle && (

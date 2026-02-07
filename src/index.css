@@ -55,6 +55,7 @@
 
     /* Radius - slightly rounded for softness */
     --radius: 0.5rem;
+    --app-header-h: 72px;
 
     /* Sidebar - industrial feel */
     --sidebar-background: 220 15% 12%;
