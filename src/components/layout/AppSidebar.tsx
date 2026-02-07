@@ -56,7 +56,7 @@ export function AppSidebar({ activeView, onViewChange, onOpenSettings }: AppSide
             <img
               src="/duro_logo.png"
               alt="duro content engine"
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover scale-[1.3] translate-y-[15%]"
             />
           </div>
         </div>
