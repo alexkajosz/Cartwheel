@@ -52,11 +52,11 @@ export function AppSidebar({ activeView, onViewChange, onOpenSettings }: AppSide
      <aside className="flex flex-col w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
        {/* Logo */}
         <div className="flex flex-col items-start gap-2 px-5 py-5 border-b border-sidebar-border">
-          <div className="w-full">
+          <div className="w-full rounded-lg bg-sidebar-accent/70 border border-sidebar-border/60 p-3 shadow-sm">
             <img
               src="/duro_logo.png"
               alt="duro"
-              className="h-10 w-auto object-contain"
+              className="h-12 w-auto object-contain"
             />
           </div>
           <p className="text-2xs text-sidebar-muted">Content Engine</p>
