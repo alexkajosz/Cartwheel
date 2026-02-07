@@ -105,15 +105,20 @@ import type { SchedulerProfile, ScheduleTime } from '@/types';
      updateSchedulerProfile(profileId, { times: newTimes });
    };
    
-   const handleUpdateTime = (profileId: string, timeIndex: number, field: 'hour' | 'minute', value: number) => {
+  const handleUpdateTime = (profileId: string, timeIndex: number, field: 'hour' | 'minute', value: number) => {
      const profile = schedulerProfiles.find(p => p.id === profileId);
      if (!profile) return;
      
      const newTimes = profile.times.map((t, i) => 
        i === timeIndex ? { ...t, [field]: value } : t
      );
-     updateSchedulerProfile(profileId, { times: newTimes });
-   };
+    updateSchedulerProfile(profileId, { times: newTimes });
+  };
+
+  const to24Hour = (hour12: number, ampm: 'AM' | 'PM') => {
+    const normalized = hour12 % 12;
+    return ampm === 'AM' ? normalized : normalized + 12;
+  };
    
    const handleRemoveTime = (profileId: string, timeIndex: number) => {
      const profile = schedulerProfiles.find(p => p.id === profileId);
@@ -323,17 +328,49 @@ import type { SchedulerProfile, ScheduleTime } from '@/types';
                             className="flex items-center gap-2 bg-muted px-3 py-2 rounded-md"
                           >
                             <Clock className="w-3 h-3 text-muted-foreground" />
-                            <select
-                              value={time.hour}
-                              onChange={(e) => handleUpdateTime(profile.id, index, 'hour', parseInt(e.target.value))}
-                              className="bg-transparent text-sm font-medium text-foreground focus:outline-none"
-                            >
-                              {Array.from({ length: 24 }, (_, i) => (
-                                <option key={i} value={i}>
-                                  {i.toString().padStart(2, '0')}
-                                </option>
-                              ))}
-                            </select>
+                            {timeFormat === '24' ? (
+                              <select
+                                value={time.hour}
+                                onChange={(e) => handleUpdateTime(profile.id, index, 'hour', parseInt(e.target.value))}
+                                className="bg-transparent text-sm font-medium text-foreground focus:outline-none"
+                              >
+                                {Array.from({ length: 24 }, (_, i) => (
+                                  <option key={i} value={i}>
+                                    {i.toString().padStart(2, '0')}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <>
+                                <select
+                                  value={time.hour % 12 || 12}
+                                  onChange={(e) => {
+                                    const hour12 = parseInt(e.target.value);
+                                    const ampm = time.hour >= 12 ? 'PM' : 'AM';
+                                    handleUpdateTime(profile.id, index, 'hour', to24Hour(hour12, ampm));
+                                  }}
+                                  className="bg-transparent text-sm font-medium text-foreground focus:outline-none"
+                                >
+                                  {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+                                    <option key={h} value={h}>
+                                      {h.toString().padStart(2, '0')}
+                                    </option>
+                                  ))}
+                                </select>
+                                <select
+                                  value={time.hour >= 12 ? 'PM' : 'AM'}
+                                  onChange={(e) => {
+                                    const ampm = e.target.value as 'AM' | 'PM';
+                                    const hour12 = time.hour % 12 || 12;
+                                    handleUpdateTime(profile.id, index, 'hour', to24Hour(hour12, ampm));
+                                  }}
+                                  className="bg-transparent text-xs font-semibold text-muted-foreground focus:outline-none"
+                                >
+                                  <option value="AM">AM</option>
+                                  <option value="PM">PM</option>
+                                </select>
+                              </>
+                            )}
                             <span>:</span>
                             <select
                               value={time.minute}

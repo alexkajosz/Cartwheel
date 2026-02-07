@@ -112,7 +112,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
     let best: { when: Date; profileName: string } | null = null;
     for (const profile of schedulerProfiles) {
       if (!profile.enabled || profile.days.length === 0 || profile.times.length === 0) continue;
-      for (let dayOffset = 0; dayOffset < 7; dayOffset += 1) {
+      for (let dayOffset = 0; dayOffset <= 7; dayOffset += 1) {
         const candidate = new Date(now);
         candidate.setDate(now.getDate() + dayOffset);
         const weekday = candidate.getDay();
@@ -290,15 +290,24 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                 {nextSchedule ? (
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Next scheduled post</p>
-                      <p className="text-sm font-medium">
-                        {nextScheduleLabel}
-                      </p>
+                    <p className="text-sm font-medium">
+                      {nextScheduleLabel}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {nextTopics[0]?.title ? nextTopics[0].title : 'No topic queued'}
                     </p>
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">No active schedule</p>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      {enabledProfiles > 0 ? 'No upcoming time' : 'No active schedule'}
+                    </p>
+                    {enabledProfiles > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Check days and times in Scheduler.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
