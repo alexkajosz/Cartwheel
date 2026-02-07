@@ -15,6 +15,7 @@ export type LogEntryType = 'posted' | 'skipped' | 'error' | 'config_change' | 'v
 export interface DevMode {
   bypassBilling: boolean;
   bypassDailyLimit: boolean;
+  bypassSetupWizard: boolean;
 }
 
  export interface ScheduleTime {

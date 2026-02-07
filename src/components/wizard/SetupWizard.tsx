@@ -101,6 +101,7 @@ export function SetupWizard({ open }: SetupWizardProps) {
   const suggestedOnceRef = useRef(false);
   const [devBilling, setDevBilling] = useState(devMode.bypassBilling);
   const [devDaily, setDevDaily] = useState(devMode.bypassDailyLimit);
+  const devWizard = devMode.bypassSetupWizard;
    
   const currentStep = WIZARD_STEPS[step];
   const progress = ((step + 1) / WIZARD_STEPS.length) * 100;
@@ -648,14 +649,16 @@ export function SetupWizard({ open }: SetupWizardProps) {
                      onCheckedChange={async (checked) => {
                        try {
                          setDevBilling(checked);
-                         const res = await api.setDevMode({
-                           bypassBilling: checked,
-                           bypassDailyLimit: devDaily,
-                         });
-                         setDevMode({
-                           bypassBilling: !!res.devMode?.bypassBilling,
-                           bypassDailyLimit: !!res.devMode?.bypassDailyLimit,
-                         });
+                        const res = await api.setDevMode({
+                          bypassBilling: checked,
+                          bypassDailyLimit: devDaily,
+                          bypassSetupWizard: devWizard,
+                        });
+                        setDevMode({
+                          bypassBilling: !!res.devMode?.bypassBilling,
+                          bypassDailyLimit: !!res.devMode?.bypassDailyLimit,
+                          bypassSetupWizard: !!res.devMode?.bypassSetupWizard,
+                        });
                        } catch {
                          // ignore
                        }
@@ -669,14 +672,16 @@ export function SetupWizard({ open }: SetupWizardProps) {
                      onCheckedChange={async (checked) => {
                        try {
                          setDevDaily(checked);
-                         const res = await api.setDevMode({
-                           bypassBilling: devBilling,
-                           bypassDailyLimit: checked,
-                         });
-                         setDevMode({
-                           bypassBilling: !!res.devMode?.bypassBilling,
-                           bypassDailyLimit: !!res.devMode?.bypassDailyLimit,
-                         });
+                        const res = await api.setDevMode({
+                          bypassBilling: devBilling,
+                          bypassDailyLimit: checked,
+                          bypassSetupWizard: devWizard,
+                        });
+                        setDevMode({
+                          bypassBilling: !!res.devMode?.bypassBilling,
+                          bypassDailyLimit: !!res.devMode?.bypassDailyLimit,
+                          bypassSetupWizard: !!res.devMode?.bypassSetupWizard,
+                        });
                        } catch {
                          // ignore
                        }

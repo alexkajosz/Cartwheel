@@ -143,7 +143,7 @@ export const api = {
   clearActivity: () => apiFetch<{ ok: boolean }>("/admin/activity/clear", { method: "POST" }),
   getBillingStatus: () => apiFetch<{ status: string; trialEndsAt: string | null; active: boolean; required: boolean; confirmationUrl?: string | null; devBypass?: boolean }>("/admin/billing/status"),
   startBilling: () => apiFetch<{ confirmationUrl: string }>("/admin/billing/start", { method: "POST" }),
-  setDevMode: (mode: { bypassBilling: boolean; bypassDailyLimit: boolean }) =>
+  setDevMode: (mode: { bypassBilling: boolean; bypassDailyLimit: boolean; bypassSetupWizard?: boolean }) =>
     apiFetch<{ devMode: any }>("/admin/dev-mode", {
       method: "POST",
       body: JSON.stringify(mode),

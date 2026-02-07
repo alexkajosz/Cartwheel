@@ -168,10 +168,11 @@ interface AppState {
      confirmationUrl: null,
      devBypass: false,
    },
-   devMode: {
-     bypassBilling: false,
-     bypassDailyLimit: false,
-   },
+  devMode: {
+    bypassBilling: false,
+    bypassDailyLimit: false,
+    bypassSetupWizard: false,
+  },
       
       // Actions
       hydrateFromServer: (payload) => set({ ...payload, serverHydrated: true }),
@@ -224,6 +225,7 @@ interface AppState {
         devMode: {
           bypassBilling: false,
           bypassDailyLimit: false,
+          bypassSetupWizard: false,
         },
       }),
        

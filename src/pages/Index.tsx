@@ -22,6 +22,7 @@ const Index = () => {
     setTopicQueue,
     setTopicArchive,
     setIncludeProductPosts,
+    devMode,
     shopifyConnected,
     resetAllLocal,
   } = useAppStore();
@@ -169,6 +170,7 @@ const Index = () => {
             devMode: {
               bypassBilling: !!config.devMode?.bypassBilling,
               bypassDailyLimit: !!config.devMode?.bypassDailyLimit,
+              bypassSetupWizard: !!config.devMode?.bypassSetupWizard,
             },
           });
         }
@@ -407,7 +409,7 @@ const Index = () => {
   return (
     <>
       <MainLayout />
-      <SetupWizard open={!setupComplete} />
+      <SetupWizard open={!setupComplete && !devMode.bypassSetupWizard} />
     </>
   );
 };

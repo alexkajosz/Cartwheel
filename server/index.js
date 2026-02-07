@@ -931,7 +931,7 @@ function loadConfig(shopDomain) {
       };
     }
     if (!cfg.devMode) {
-      cfg.devMode = { bypassBilling: false, bypassDailyLimit: false };
+      cfg.devMode = { bypassBilling: false, bypassDailyLimit: false, bypassSetupWizard: false };
     }
     // continue through migrations below
     return (function applyMigrations(cfg) {
@@ -1062,7 +1062,7 @@ function loadConfig(shopDomain) {
     };
   }
   if (!cfg.devMode) {
-    cfg.devMode = { bypassBilling: false, bypassDailyLimit: false };
+    cfg.devMode = { bypassBilling: false, bypassDailyLimit: false, bypassSetupWizard: false };
   }
 
   // --- v0.2 migration: cfg.schedules[] becomes source of truth ---
@@ -2220,7 +2220,8 @@ app.post("/admin/dev-mode", (req, res) => {
     const cfg = ctx.cfg;
     const bypassBilling = !!req.body?.bypassBilling;
     const bypassDailyLimit = !!req.body?.bypassDailyLimit;
-    cfg.devMode = { bypassBilling, bypassDailyLimit };
+    const bypassSetupWizard = !!req.body?.bypassSetupWizard;
+    cfg.devMode = { bypassBilling, bypassDailyLimit, bypassSetupWizard };
     saveConfig(cfg);
     return res.json({ ok: true, devMode: cfg.devMode });
   } catch (e) {
@@ -3706,7 +3707,7 @@ app.post("/admin/reset-all", (req, res) => {
     cfg._postingBlocked = true;
     cfg.excludedTopics = [];
     cfg.billing = { status: "inactive", trialEndsAt: null, lastCheckAt: null, plan: BILLING_PLAN };
-    cfg.devMode = { bypassBilling: false, bypassDailyLimit: false };
+    cfg.devMode = { bypassBilling: false, bypassDailyLimit: false, bypassSetupWizard: false };
 
     // Disconnect Shopify on reset
     delete cfg.shopify;

@@ -79,6 +79,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [topicIncludeProducts, setTopicIncludeProducts] = useState(false);
   const [devBilling, setDevBilling] = useState(devMode.bypassBilling);
   const [devDaily, setDevDaily] = useState(devMode.bypassDailyLimit);
+  const [devWizard, setDevWizard] = useState(devMode.bypassSetupWizard);
   const [systemLogLines, setSystemLogLines] = useState<string[]>([]);
   const [loadingSystemLog, setLoadingSystemLog] = useState(false);
 
@@ -100,7 +101,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   useEffect(() => {
     setDevBilling(devMode.bypassBilling);
     setDevDaily(devMode.bypassDailyLimit);
-  }, [devMode.bypassBilling, devMode.bypassDailyLimit]);
+    setDevWizard(devMode.bypassSetupWizard);
+  }, [devMode.bypassBilling, devMode.bypassDailyLimit, devMode.bypassSetupWizard]);
 
   const loadSystemLog = async () => {
     try {
@@ -719,10 +721,12 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                             const res = await api.setDevMode({
                               bypassBilling: checked,
                               bypassDailyLimit: devDaily,
+                              bypassSetupWizard: devWizard,
                             });
                             setDevMode({
                               bypassBilling: !!res.devMode?.bypassBilling,
                               bypassDailyLimit: !!res.devMode?.bypassDailyLimit,
+                              bypassSetupWizard: !!res.devMode?.bypassSetupWizard,
                             });
                           } catch {
                             // ignore
@@ -740,10 +744,35 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                             const res = await api.setDevMode({
                               bypassBilling: devBilling,
                               bypassDailyLimit: checked,
+                              bypassSetupWizard: devWizard,
                             });
                             setDevMode({
                               bypassBilling: !!res.devMode?.bypassBilling,
                               bypassDailyLimit: !!res.devMode?.bypassDailyLimit,
+                              bypassSetupWizard: !!res.devMode?.bypassSetupWizard,
+                            });
+                          } catch {
+                            // ignore
+                          }
+                        }}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between rounded-md border border-destructive/40 bg-background px-3 py-2 text-sm">
+                      <span>Bypass setup wizard</span>
+                      <Switch
+                        checked={devWizard}
+                        onCheckedChange={async (checked) => {
+                          try {
+                            setDevWizard(checked);
+                            const res = await api.setDevMode({
+                              bypassBilling: devBilling,
+                              bypassDailyLimit: devDaily,
+                              bypassSetupWizard: checked,
+                            });
+                            setDevMode({
+                              bypassBilling: !!res.devMode?.bypassBilling,
+                              bypassDailyLimit: !!res.devMode?.bypassDailyLimit,
+                              bypassSetupWizard: !!res.devMode?.bypassSetupWizard,
                             });
                           } catch {
                             // ignore
