@@ -15,6 +15,7 @@ import type { SchedulerProfile, ScheduleTime } from '@/types';
   const { 
     schedulerProfiles, 
     schedulerStatus,
+    timeFormat,
     dailyPostLimit,
     postsToday,
     serverHydrated,
@@ -122,12 +123,16 @@ import type { SchedulerProfile, ScheduleTime } from '@/types';
      updateSchedulerProfile(profileId, { times: newTimes });
    };
    
-   const formatTime = (time: ScheduleTime) => {
-     const hour = time.hour % 12 || 12;
-     const ampm = time.hour >= 12 ? 'PM' : 'AM';
-     const minute = time.minute.toString().padStart(2, '0');
-     return `${hour}:${minute} ${ampm}`;
-   };
+  const formatTime = (time: ScheduleTime) => {
+    const minute = time.minute.toString().padStart(2, '0');
+    if (timeFormat === '24') {
+      const hour = time.hour.toString().padStart(2, '0');
+      return `${hour}:${minute}`;
+    }
+    const hour = time.hour % 12 || 12;
+    const ampm = time.hour >= 12 ? 'PM' : 'AM';
+    return `${hour}:${minute} ${ampm}`;
+  };
    
    const hasConflict = (profile: SchedulerProfile) => {
      for (const other of schedulerProfiles) {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bell, HelpCircle, Moon, Store, Sun } from 'lucide-react';
+import { Bell, Clock, HelpCircle, Moon, Store, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -29,12 +29,15 @@ export function Header({ title, subtitle }: HeaderProps) {
     billing, 
     schedulerStatus, 
     postsToday, 
-    dailyPostLimit 
+    dailyPostLimit,
+    timezone,
+    timeFormat
   } = useAppStore();
   const { toast } = useToast();
   const [connectOpen, setConnectOpen] = useState(false);
   const [shopDomain, setShopDomain] = useState('');
   const [isDark, setIsDark] = useState(false);
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
     const saved = localStorage.getItem('theme');
@@ -44,12 +47,24 @@ export function Header({ title, subtitle }: HeaderProps) {
     document.documentElement.classList.toggle('dark', enabled);
   }, []);
 
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const toggleTheme = () => {
     const next = !isDark;
     setIsDark(next);
     document.documentElement.classList.toggle('dark', next);
     localStorage.setItem('theme', next ? 'dark' : 'light');
   };
+
+  const clockLabel = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: timeFormat === '12',
+    timeZone: timezone || undefined,
+  }).format(now);
 
   const alerts: Array<{
     id: string;
@@ -149,6 +164,11 @@ export function Header({ title, subtitle }: HeaderProps) {
               {businessConfig.businessName || 'Shopify store'}
             </span>
           </Button>
+
+          <div className="flex items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1.5 text-xs font-medium text-foreground">
+            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+            <span>{clockLabel}</span>
+          </div>
 
           <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={toggleTheme}>
             {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}

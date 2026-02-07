@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Store, Building2, Users, FileX, Target, MessageSquare, RotateCcw, Sparkles } from 'lucide-react';
+import { Store, Building2, Users, FileX, Target, MessageSquare, RotateCcw, Sparkles, Clock } from 'lucide-react';
  import {
    Dialog,
    DialogContent,
@@ -51,6 +51,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     minimumTopicThreshold,
     includeProductPosts,
     devMode,
+    timeFormat,
     updateBusinessConfig, 
     disconnectShopify,
     setShopifyConnected,
@@ -66,7 +67,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     setTopicBatchSize,
     setMinimumTopicThreshold,
     setIncludeProductPosts,
-    setDevMode
+    setDevMode,
+    setTimeFormat
   } = useAppStore();
   const { toast } = useToast();
   
@@ -656,6 +658,25 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       Save Topic Settings
                     </Button>
                   </div>
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="panel-body space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <p className="font-medium">Time Display</p>
+                  </div>
+                  <label className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm">
+                    <span>Use 24-hour clock</span>
+                    <Switch
+                      checked={timeFormat === '24'}
+                      onCheckedChange={(checked) => setTimeFormat(checked ? '24' : '12')}
+                    />
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Applies to the header clock and scheduling display.
+                  </p>
                 </div>
               </div>
 

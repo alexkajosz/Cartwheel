@@ -52,6 +52,7 @@ interface AppState {
 
   // Timezone
   timezone: string;
+  timeFormat: '12' | '24';
 
   // Billing / dev mode
   billing: {
@@ -106,6 +107,7 @@ interface AppState {
   setBilling: (billing: AppState['billing']) => void;
   setDevMode: (mode: DevMode) => void;
   setTimezone: (timezone: string) => void;
+  setTimeFormat: (format: '12' | '24') => void;
 }
  
  const defaultBusinessConfig: BusinessConfig = {
@@ -157,6 +159,7 @@ interface AppState {
     
   activityLog: [],
   timezone: '',
+  timeFormat: '12',
 
    billing: {
      required: false,
@@ -210,6 +213,7 @@ interface AppState {
         includeProductPosts: false,
         activityLog: [],
         timezone: '',
+        timeFormat: '12',
         billing: {
           required: false,
           status: 'inactive',
@@ -308,6 +312,7 @@ interface AppState {
     setBilling: (billing) => set({ billing }),
     setDevMode: (mode) => set({ devMode: mode }),
     setTimezone: (timezone) => set({ timezone: String(timezone || '') }),
+    setTimeFormat: (format) => set({ timeFormat: format }),
    }),
    {
      name: 'duro-storage',
@@ -330,6 +335,7 @@ interface AppState {
         activityLog: state.activityLog,
         devMode: state.devMode,
         timezone: state.timezone,
+        timeFormat: state.timeFormat,
       }),
     }
   )
