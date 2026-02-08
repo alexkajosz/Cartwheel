@@ -1,3 +1,5 @@
+import { getSessionTokenSafe } from "@/lib/shopifyAppBridge";
+
 type ApiOk<T extends object = object> = { ok: true } & T;
 type ApiErr = { ok: false; error?: string };
 
@@ -8,6 +10,10 @@ async function apiFetch<T extends object>(
   const headers = new Headers(options.headers || {});
   if (options.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
+  }
+  const token = await getSessionTokenSafe();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   const res = await fetch(path, { ...options, headers });
@@ -180,7 +186,10 @@ export const api = {
     }),
   postSeo: async (topic?: string) => {
     const url = topic ? `/post-seo?topic=${encodeURIComponent(topic)}` : "/post-seo";
-    const res = await fetch(url, { method: "GET" });
+    const token = await getSessionTokenSafe();
+    const headers = new Headers();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const res = await fetch(url, { method: "GET", headers });
     const text = await res.text();
     let data: any = {};
     try {

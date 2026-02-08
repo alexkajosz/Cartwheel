@@ -146,6 +146,8 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
     }
   }, [nextSchedule, effectiveTimezone, timeFormat]);
 
+  const logTimeFormat = timeFormat === '24' ? 'MMM d, HH:mm' : 'MMM d, h:mm a';
+
   useEffect(() => {
     if (previewIndex > Math.max(nextTopics.length - 1, 0)) {
       setPreviewIndex(0);
@@ -336,7 +338,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Last post</p>
                     <p className="text-sm font-medium">
-                      {format(new Date(lastPost.timestamp), 'MMM d, h:mm a')}
+                      {format(new Date(lastPost.timestamp), logTimeFormat)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {lastPost.message}
@@ -574,7 +576,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                         )}
                       </div>
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {format(new Date(log.timestamp), 'MMM d, h:mm a')}
+                        {format(new Date(log.timestamp), logTimeFormat)}
                       </span>
                     </div>
                   ))}

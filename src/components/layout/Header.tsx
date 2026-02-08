@@ -184,7 +184,7 @@ export function Header({ title, subtitle }: HeaderProps) {
               </button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-64">
-              <div className="text-sm font-medium text-foreground">Local time</div>
+              <div className="text-sm font-medium text-foreground">Store time</div>
               <div className="mt-2 text-lg font-semibold text-foreground">{clockLabel}</div>
               <div className="mt-1 text-xs text-muted-foreground">{clockDetail}</div>
               <div className="mt-2 text-xs text-muted-foreground">

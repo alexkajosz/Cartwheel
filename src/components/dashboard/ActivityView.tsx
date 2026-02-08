@@ -25,7 +25,7 @@ import { useToast } from '@/hooks/use-toast';
  type FilterPeriod = '7d' | '30d' | 'mtd' | 'all';
  
 export function ActivityView() {
-  const { activityLog, clearActivityLog } = useAppStore();
+  const { activityLog, clearActivityLog, timeFormat } = useAppStore();
   const { toast } = useToast();
   const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>('7d');
    const [filterType, setFilterType] = useState<LogEntryType | 'all'>('all');
@@ -174,9 +174,9 @@ export function ActivityView() {
                        </p>
                      )}
                    </div>
-                   <span className="text-xs text-muted-foreground whitespace-nowrap">
-                     {format(new Date(log.timestamp), 'MMM d, h:mm a')}
-                   </span>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {format(new Date(log.timestamp), timeFormat === '24' ? 'MMM d, HH:mm' : 'MMM d, h:mm a')}
+                    </span>
                  </div>
                ))}
              </div>

@@ -2,6 +2,7 @@ require("dotenv").config();
 const fs = require("fs");
 const express = require("express");
 const crypto = require("crypto");
+const { jwtVerify } = require("jose");
 const path = require("path");
 const { exec } = require("child_process");
 
@@ -59,7 +60,15 @@ function classifyContentIntent(topic, businessContext) {
   return intent;
 }
 
-app.use(express.json());
+app.disable("x-powered-by");
+app.use(express.json({ limit: "1mb" }));
+
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Content-Security-Policy", "frame-ancestors 'self' https://admin.shopify.com https://*.myshopify.com;");
+  next();
+});
 
 function basicClean(text) {
   return String(text || "")
@@ -295,6 +304,47 @@ function resolveFrontendOrigin(req) {
   return `${req.protocol}://${req.get("host")}`;
 }
 
+const ALLOWED_ORIGINS = new Set([FRONTEND_ORIGIN, PUBLIC_BASE_URL].filter(Boolean));
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.size > 0) {
+    if (!ALLOWED_ORIGINS.has(origin)) {
+      return res.status(403).json({ ok: false, error: "origin_not_allowed" });
+    }
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+    res.setHeader("Vary", "Origin");
+    if (req.method === "OPTIONS") return res.sendStatus(204);
+  }
+  return next();
+});
+
+const rateBuckets = new Map();
+function rateLimitHit(key, limit, windowMs) {
+  const now = Date.now();
+  const entry = rateBuckets.get(key);
+  if (!entry || now - entry.start > windowMs) {
+    rateBuckets.set(key, { start: now, count: 1 });
+    return false;
+  }
+  entry.count += 1;
+  if (entry.count > limit) return true;
+  return false;
+}
+
+app.use((req, res, next) => {
+  if (req.path.startsWith("/admin") || req.path === "/post-seo") {
+    const key = `${req.ip}:${req.path}`;
+    if (rateLimitHit(key, 120, 60 * 1000)) {
+      return res.status(429).json({ ok: false, error: "rate_limited" });
+    }
+  }
+  return next();
+});
+
 // Minimal-but-complete v0.4 scopes (content + products)
 const SHOPIFY_OAUTH_SCOPES = "read_content,write_content,read_products,read_orders,read_customers";
 
@@ -529,6 +579,48 @@ const PUBLIC_ADMIN_PATHS = new Set([
   "/shopify/oauth/start",
   "/shopify/oauth/callback",
 ]);
+
+const ALLOW_INSECURE_AUTH = String(process.env.ALLOW_INSECURE_AUTH || "").toLowerCase() === "true";
+
+async function requireSessionToken(req, res) {
+  const auth = String(req.headers.authorization || "");
+  if (auth.startsWith("Bearer ")) {
+    const token = auth.slice(7).trim();
+    if (!SHOPIFY_CLIENT_SECRET || !SHOPIFY_CLIENT_ID) {
+      res.status(500).json({ ok: false, error: "missing_shopify_credentials" });
+      return false;
+    }
+    try {
+      const secret = new TextEncoder().encode(SHOPIFY_CLIENT_SECRET);
+      const { payload } = await jwtVerify(token, secret, {
+        algorithms: ["HS256"],
+        audience: SHOPIFY_CLIENT_ID,
+      });
+      const dest = String(payload?.dest || payload?.iss || "");
+      const shop = dest.replace(/^https?:\/\//i, "");
+      if (!shop || !shop.includes(".myshopify.com")) {
+        res.status(401).json({ ok: false, error: "invalid_shop" });
+        return false;
+      }
+      req.shopDomain = shop;
+      return true;
+    } catch {
+      res.status(401).json({ ok: false, error: "invalid_session_token" });
+      return false;
+    }
+  }
+
+  if (ALLOW_INSECURE_AUTH) {
+    const shop = getShopFromReq(req);
+    if (shop) {
+      req.shopDomain = shop;
+      return true;
+    }
+  }
+
+  res.status(401).json({ ok: false, error: "missing_session_token" });
+  return false;
+}
 const BILLING_EXEMPT_PATHS = new Set([
   "/shopify/oauth/start",
   "/shopify/oauth/callback",
@@ -4646,10 +4738,9 @@ Guidelines:
 
 app.get("/post-seo", async (req, res) => {
   try {
-    const shop = getShopFromReq(req);
-    if (!shop) {
-      return res.status(401).json({ ok: false, error: "not_authenticated" });
-    }
+    const ok = await requireSessionToken(req, res);
+    if (!ok) return;
+    const shop = req.shopDomain;
     // Daily limit gate (manual)
     const cfgGate = loadConfig(shop);
     const changed = initDailyUsage(cfgGate);
