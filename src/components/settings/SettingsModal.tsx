@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Store, Building2, Users, FileX, Target, MessageSquare, RotateCcw, Sparkles, Clock } from 'lucide-react';
+import { Store, Building2, Users, FileX, Target, MessageSquare, RotateCcw, Sparkles, Clock, ShieldCheck, Download } from 'lucide-react';
  import {
    Dialog,
    DialogContent,
@@ -82,6 +82,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [devWizard, setDevWizard] = useState(devMode.bypassSetupWizard);
   const [systemLogLines, setSystemLogLines] = useState<string[]>([]);
   const [loadingSystemLog, setLoadingSystemLog] = useState(false);
+  const [backupLoading, setBackupLoading] = useState(false);
 
   const normalizeShopDomain = (value: string) => {
     let cleaned = String(value || '').trim();
@@ -678,6 +679,67 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   </label>
                   <p className="text-xs text-muted-foreground">
                     Applies to the header clock and scheduling display.
+                  </p>
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="panel-body space-y-3">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+                    <p className="font-medium">Data &amp; Privacy</p>
+                  </div>
+                  <div className="grid gap-2 text-sm">
+                    <a className="text-muted-foreground hover:text-foreground" href="/privacy.html" target="_blank" rel="noreferrer">
+                      Privacy Policy
+                    </a>
+                    <a className="text-muted-foreground hover:text-foreground" href="/dpa.html" target="_blank" rel="noreferrer">
+                      Data Processing Addendum (DPA)
+                    </a>
+                    <a className="text-muted-foreground hover:text-foreground" href="/retention.html" target="_blank" rel="noreferrer">
+                      Data Retention Policy
+                    </a>
+                    <a className="text-muted-foreground hover:text-foreground" href="/security.html" target="_blank" rel="noreferrer">
+                      Security Policy
+                    </a>
+                    <a className="text-muted-foreground hover:text-foreground" href="/incident-response.html" target="_blank" rel="noreferrer">
+                      Incident Response Policy
+                    </a>
+                    <a className="text-muted-foreground hover:text-foreground" href="/dlp.html" target="_blank" rel="noreferrer">
+                      Data Loss Prevention Policy
+                    </a>
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm">
+                    <span>Data export</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          setBackupLoading(true);
+                          const res = await api.createBackup();
+                          toast({
+                            title: "Backup created",
+                            description: `Saved as ${res.filename}`,
+                          });
+                        } catch (e) {
+                          toast({
+                            title: "Backup failed",
+                            description: String(e),
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setBackupLoading(false);
+                        }
+                      }}
+                      disabled={backupLoading}
+                    >
+                      <Download className="w-4 h-4 mr-1" />
+                      {backupLoading ? "Creating..." : "Create Backup"}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Backups include configuration, activity, and logs for this shop.
                   </p>
                 </div>
               </div>

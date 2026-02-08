@@ -39,6 +39,7 @@ export const api = {
   getShopifyInsights: () => apiFetch<{ connected: boolean; insights: any }>("/admin/shopify/insights"),
   getShopifyProducts: () => apiFetch<{ connected: boolean; products: any[] }>("/admin/shopify/products"),
   getSystemLog: () => apiFetch<{ lines: string[] }>("/admin/system-log"),
+  createBackup: () => apiFetch<{ filename: string }>("/admin/backup", { method: "POST" }),
   disconnectShopify: () => apiFetch("/admin/shopify/disconnect", { method: "POST" }),
 
   setupAutopopulate: () => apiFetch<{ config: any }>("/admin/setup/autopopulate", { method: "POST" }),

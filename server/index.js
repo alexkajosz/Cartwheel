@@ -84,6 +84,129 @@ function normalizeContentIntent(intent) {
   return "informational";
 }
 
+const APP_ENV = String(process.env.APP_ENV || process.env.NODE_ENV || "development").toLowerCase();
+const DATA_ENCRYPTION_KEY = process.env.DATA_ENCRYPTION_KEY || "";
+const DATA_RETENTION_DAYS = Math.max(1, Number(process.env.DATA_RETENTION_DAYS || 90));
+const REQUIRE_DATABASE = String(process.env.REQUIRE_DATABASE || "").toLowerCase() === "true";
+const REQUIRE_BACKUP_ENCRYPTION = String(process.env.REQUIRE_BACKUP_ENCRYPTION || "").toLowerCase() === "true";
+const REQUIRE_DATA_ENCRYPTION = String(process.env.REQUIRE_DATA_ENCRYPTION || "").toLowerCase() === "true";
+const AUTO_BACKUP_INTERVAL_HOURS = Number(process.env.AUTO_BACKUP_INTERVAL_HOURS || 0);
+
+let _encryptionKeyCache = undefined;
+function getEncryptionKey() {
+  if (_encryptionKeyCache !== undefined) return _encryptionKeyCache;
+  if (!DATA_ENCRYPTION_KEY) {
+    _encryptionKeyCache = null;
+    return _encryptionKeyCache;
+  }
+  try {
+    let key = null;
+    if (/^[0-9a-fA-F]+$/.test(DATA_ENCRYPTION_KEY) && DATA_ENCRYPTION_KEY.length === 64) {
+      key = Buffer.from(DATA_ENCRYPTION_KEY, "hex");
+    } else {
+      key = Buffer.from(DATA_ENCRYPTION_KEY, "base64");
+    }
+    if (key && key.length === 32) {
+      _encryptionKeyCache = key;
+      return key;
+    }
+  } catch {}
+  console.warn("Invalid DATA_ENCRYPTION_KEY; encryption disabled.");
+  _encryptionKeyCache = null;
+  return _encryptionKeyCache;
+}
+
+if (REQUIRE_DATA_ENCRYPTION && !getEncryptionKey()) {
+  throw new Error("DATA_ENCRYPTION_KEY is required when REQUIRE_DATA_ENCRYPTION=true");
+}
+
+function encryptString(plainText) {
+  const key = getEncryptionKey();
+  if (!key) return null;
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const data = Buffer.concat([cipher.update(String(plainText), "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    __enc: true,
+    v: 1,
+    iv: iv.toString("base64"),
+    tag: tag.toString("base64"),
+    data: data.toString("base64")
+  };
+}
+
+function decryptToString(encObj) {
+  try {
+    const key = getEncryptionKey();
+    if (!key || !encObj?.iv || !encObj?.tag || !encObj?.data) return null;
+    const iv = Buffer.from(encObj.iv, "base64");
+    const tag = Buffer.from(encObj.tag, "base64");
+    const data = Buffer.from(encObj.data, "base64");
+    const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+    decipher.setAuthTag(tag);
+    const out = Buffer.concat([decipher.update(data), decipher.final()]);
+    return out.toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
+function encodePayload(obj, pretty = false) {
+  const enc = encryptString(JSON.stringify(obj));
+  if (enc) return JSON.stringify(enc);
+  return JSON.stringify(obj, null, pretty ? 2 : 0);
+}
+
+function decodePayload(raw) {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.__enc) {
+      const plain = decryptToString(parsed);
+      if (!plain) return null;
+      return JSON.parse(plain);
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function encodeLogLine(obj) {
+  const enc = encryptString(JSON.stringify(obj));
+  return enc ? JSON.stringify(enc) : JSON.stringify(obj);
+}
+
+function decodeLogLine(line) {
+  if (!line) return null;
+  try {
+    const parsed = JSON.parse(line);
+    if (parsed && parsed.__enc) {
+      const plain = decryptToString(parsed);
+      if (!plain) return null;
+      return JSON.parse(plain);
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function retentionCutoffMs() {
+  return Date.now() - DATA_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+}
+
+function applyRetention(entries) {
+  if (!Array.isArray(entries)) return { entries: [], changed: false };
+  const cutoff = retentionCutoffMs();
+  const filtered = entries.filter((e) => {
+    const ts = Number(e?.ts || e?.timestamp || 0);
+    return ts >= cutoff;
+  });
+  return { entries: filtered, changed: filtered.length !== entries.length };
+}
+
 function getTopicTitle(item) {
   if (!item) return "";
   if (typeof item === "string") return String(item).trim();
@@ -369,10 +492,12 @@ const STARTUP_DIR = process.env.APPDATA
 const STARTUP_CMD = STARTUP_DIR ? path.join(STARTUP_DIR, `${TASK_NAME}.cmd`) : "";
 const CONFIG_PATH = path.join(__dirname, "config.json");
 
-const DATA_DIR = path.join(__dirname, "data");
+const DATA_DIR = path.join(__dirname, `data-${APP_ENV}`);
 const SHOPS_DIR = path.join(DATA_DIR, "shops");
 const ACTIVITY_DIR = path.join(DATA_DIR, "activity");
 const SYSTEM_LOG_DIR = path.join(DATA_DIR, "system");
+const ACCESS_LOG_DIR = path.join(DATA_DIR, "access");
+const BACKUP_DIR = path.join(DATA_DIR, "backups");
 const SQLITE_PATH = process.env.SQLITE_PATH || "";
 let db = null;
 
@@ -380,10 +505,16 @@ try {
   fs.mkdirSync(SHOPS_DIR, { recursive: true });
   fs.mkdirSync(ACTIVITY_DIR, { recursive: true });
   fs.mkdirSync(SYSTEM_LOG_DIR, { recursive: true });
+  fs.mkdirSync(ACCESS_LOG_DIR, { recursive: true });
+  fs.mkdirSync(BACKUP_DIR, { recursive: true });
 } catch {}
 
 function dbEnabled() {
   return !!SQLITE_PATH;
+}
+
+if (REQUIRE_DATABASE && !SQLITE_PATH) {
+  throw new Error("SQLITE_PATH is required when REQUIRE_DATABASE=true");
 }
 
 function getDb() {
@@ -409,6 +540,11 @@ function getDb() {
         updated_at TEXT
       );
       CREATE TABLE IF NOT EXISTS system_logs (
+        shop TEXT PRIMARY KEY,
+        log TEXT NOT NULL,
+        updated_at TEXT
+      );
+      CREATE TABLE IF NOT EXISTS access_logs (
         shop TEXT PRIMARY KEY,
         log TEXT NOT NULL,
         updated_at TEXT
@@ -460,10 +596,35 @@ function dbAppendSystemLog(shop, line) {
   return true;
 }
 
+function dbSetSystemLog(shop, raw) {
+  const d = getDb();
+  if (!d) return false;
+  d.prepare("INSERT INTO system_logs (shop, log, updated_at) VALUES (?, ?, ?) ON CONFLICT(shop) DO UPDATE SET log = excluded.log, updated_at = excluded.updated_at")
+    .run(shop, raw || "", new Date().toISOString());
+  return true;
+}
+
 function dbGetSystemLog(shop) {
   const d = getDb();
   if (!d) return "";
   const row = d.prepare("SELECT log FROM system_logs WHERE shop = ?").get(shop);
+  return row?.log || "";
+}
+
+function dbAppendAccessLog(shop, line) {
+  const d = getDb();
+  if (!d) return false;
+  const row = d.prepare("SELECT log FROM access_logs WHERE shop = ?").get(shop);
+  const next = `${row?.log || ""}${line}\n`;
+  d.prepare("INSERT INTO access_logs (shop, log, updated_at) VALUES (?, ?, ?) ON CONFLICT(shop) DO UPDATE SET log = excluded.log, updated_at = excluded.updated_at")
+    .run(shop, next, new Date().toISOString());
+  return true;
+}
+
+function dbGetAccessLog(shop) {
+  const d = getDb();
+  if (!d) return "";
+  const row = d.prepare("SELECT log FROM access_logs WHERE shop = ?").get(shop);
   return row?.log || "";
 }
 
@@ -495,6 +656,10 @@ function activityPathFor(shopDomain) {
 
 function systemLogPathFor(shopDomain) {
   return path.join(SYSTEM_LOG_DIR, `${shopKey(shopDomain)}.jsonl`);
+}
+
+function accessLogPathFor(shopDomain) {
+  return path.join(ACCESS_LOG_DIR, `${shopKey(shopDomain)}.jsonl`);
 }
 
 function listShops() {
@@ -629,16 +794,44 @@ const BILLING_EXEMPT_PATHS = new Set([
   "/billing/start",
   "/billing/confirm",
   "/dev-mode",
-  "/config"
+  "/config",
+  "/backup"
 ]);
 
-app.use("/admin", (req, res, next) => {
+const SENSITIVE_PATHS = new Set([
+  "/config",
+  "/shopify/context",
+  "/shopify/products",
+  "/shopify/insights",
+  "/topics",
+  "/activity",
+  "/system-log",
+  "/billing/status",
+  "/billing/start",
+  "/backup",
+  "/topics/clear-queue",
+  "/topics/clear-archive",
+  "/topics/release-archive",
+]);
+
+function maybeLogAccess(req) {
+  if (!SENSITIVE_PATHS.has(req.path)) return;
+  const shop = req.shopDomain || "";
+  logAccess(shop, {
+    type: "access",
+    path: req.path,
+    method: req.method,
+    ip: req.ip,
+    ua: String(req.headers["user-agent"] || "")
+  });
+}
+
+app.use("/admin", async (req, res, next) => {
   if (PUBLIC_ADMIN_PATHS.has(req.path)) return next();
-  const shop = getShopFromReq(req);
-  if (!shop) {
-    return res.status(401).json({ ok: false, error: "not_authenticated" });
-  }
-  req.shopDomain = shop;
+  const ok = await requireSessionToken(req, res);
+  if (!ok) return;
+  maybeLogAccess(req);
+  const shop = req.shopDomain;
   if (BILLING_EXEMPT_PATHS.has(req.path)) return next();
   try {
     const cfg = loadConfig(shop);
@@ -917,6 +1110,17 @@ app.post("/admin/ai/clean-input", async (req, res) => {
   }
 });
 
+app.post("/admin/backup", (req, res) => {
+  try {
+    const ctx = getCfgFromReq(req, res);
+    if (!ctx) return;
+    const result = writeBackup(ctx.shop);
+    return res.json({ ok: true, filename: result.filename });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e || "Backup failed") });
+  }
+});
+
 function normalizeTimeHHMM(s) {
   const m = String(s || "").trim().match(/^(\d{1,2}):(\d{2})$/);
   if (!m) return null;
@@ -968,7 +1172,8 @@ function defaultConfig(shopDomain) {
     },
     devMode: {
       bypassBilling: false,
-      bypassDailyLimit: false
+      bypassDailyLimit: false,
+      bypassSetupWizard: false
     },
     shopDomain: shopDomain || undefined,
     shopify: shopDomain ? { shopDomain, accessToken: "" } : undefined
@@ -983,7 +1188,7 @@ function loadConfig(shopDomain) {
       const cfgPath = shopConfigPath(shopDomain);
       if (fs.existsSync(cfgPath)) {
         try {
-          const legacyFile = JSON.parse(fs.readFileSync(cfgPath, "utf-8"));
+          const legacyFile = decodePayload(fs.readFileSync(cfgPath, "utf-8"));
           dbSaveConfig(shopDomain, legacyFile);
           cfg = legacyFile;
         } catch {}
@@ -993,7 +1198,7 @@ function loadConfig(shopDomain) {
       // try migrate legacy global config once (best-effort)
       if (fs.existsSync(CONFIG_PATH)) {
         try {
-          const legacy = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8"));
+          const legacy = decodePayload(fs.readFileSync(CONFIG_PATH, "utf-8"));
           if (legacy?.shopify?.shopDomain === shopDomain) {
             dbSaveConfig(shopDomain, legacy);
             cfg = legacy;
@@ -1122,7 +1327,7 @@ function loadConfig(shopDomain) {
     // try migrate legacy config once (best-effort)
     if (fs.existsSync(CONFIG_PATH)) {
       try {
-        const legacy = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8"));
+        const legacy = decodePayload(fs.readFileSync(CONFIG_PATH, "utf-8"));
         if (legacy?.shopify?.shopDomain === shopDomain) {
           fs.writeFileSync(cfgPath, JSON.stringify(legacy, null, 2), "utf-8");
         }
@@ -1312,7 +1517,7 @@ function saveConfig(cfg) {
     return;
   }
   const cfgPath = shopConfigPath(shopDomain);
-  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2), "utf-8");
+  fs.writeFileSync(cfgPath, encodePayload(cfg, true), "utf-8");
 }
 
 async function shopifyGraphQL(shopDomain, accessToken, query, variables) {
@@ -2025,15 +2230,19 @@ function acquireLock() {
 
 function loadActivity(shopDomain) {
   try {
+    let data = null;
     if (dbEnabled()) {
-      const data = dbGetActivity(shopDomain);
-      return Array.isArray(data) ? data : [];
+      data = dbGetActivity(shopDomain);
+    } else {
+      const p = activityPathFor(shopDomain);
+      if (!fs.existsSync(p)) return [];
+      const raw = fs.readFileSync(p, "utf-8");
+      data = decodePayload(raw);
     }
-    const p = activityPathFor(shopDomain);
-    if (!fs.existsSync(p)) return [];
-    const raw = fs.readFileSync(p, "utf-8");
-    const data = JSON.parse(raw);
-    return Array.isArray(data) ? data : [];
+    const arr = Array.isArray(data) ? data : [];
+    const { entries, changed } = applyRetention(arr);
+    if (changed) saveActivity(shopDomain, entries);
+    return entries;
   } catch {
     return [];
   }
@@ -2097,7 +2306,7 @@ function saveActivity(shopDomain, activityLog) {
       return;
     }
     const p = activityPathFor(shopDomain);
-    fs.writeFileSync(p, JSON.stringify(activityLog, null, 2), "utf-8");
+    fs.writeFileSync(p, encodePayload(activityLog, true), "utf-8");
   } catch {
     // ignore disk errors for now
   }
@@ -2112,19 +2321,111 @@ function logActivity(shopDomain, evt) {
 
 function logSystem(shopDomain, evt) {
   try {
+    const line = encodeLogLine({ ts: Date.now(), ...evt });
     if (dbEnabled()) {
-      dbAppendSystemLog(shopDomain, JSON.stringify({ ts: Date.now(), ...evt }));
+      dbAppendSystemLog(shopDomain, line);
       return;
     }
     const p = systemLogPathFor(shopDomain);
-    fs.appendFileSync(
-      p,
-      JSON.stringify({ ts: Date.now(), ...evt }) + "\n",
-      "utf-8"
-    );
+    fs.appendFileSync(p, line + "\n", "utf-8");
   } catch {
     // ignore disk errors for now
   }
+}
+
+function logAccess(shopDomain, evt) {
+  try {
+    const line = encodeLogLine({ ts: Date.now(), ...evt });
+    if (dbEnabled()) {
+      dbAppendAccessLog(shopDomain, line);
+      return;
+    }
+    const p = accessLogPathFor(shopDomain);
+    fs.appendFileSync(p, line + "\n", "utf-8");
+  } catch {
+    // ignore disk errors for now
+  }
+}
+
+function decodeLogLines(raw) {
+  return String(raw || "").split("\n").filter(Boolean).map((l) => decodeLogLine(l)).filter(Boolean);
+}
+
+function encodeLogLines(entries) {
+  return entries.map((e) => encodeLogLine(e)).join("\n") + "\n";
+}
+
+function pruneSystemLog(shopDomain) {
+  try {
+    let raw = "";
+    if (dbEnabled()) {
+      raw = dbGetSystemLog(shopDomain) || "";
+    } else {
+      const p = systemLogPathFor(shopDomain);
+      if (!fs.existsSync(p)) return;
+      raw = fs.readFileSync(p, "utf-8");
+    }
+    const decoded = decodeLogLines(raw);
+    const { entries, changed } = applyRetention(decoded);
+    if (!changed) return;
+    const nextRaw = encodeLogLines(entries);
+    if (dbEnabled()) dbSetSystemLog(shopDomain, nextRaw);
+    else fs.writeFileSync(systemLogPathFor(shopDomain), nextRaw, "utf-8");
+  } catch {}
+}
+
+
+function collectShopData(shopDomain) {
+  const cfg = loadConfig(shopDomain);
+  const activity = loadActivity(shopDomain);
+  let systemLog = [];
+  let accessLog = [];
+  try {
+    const sysRaw = dbEnabled() ? (dbGetSystemLog(shopDomain) || "") : (fs.existsSync(systemLogPathFor(shopDomain)) ? fs.readFileSync(systemLogPathFor(shopDomain), "utf-8") : "");
+    systemLog = decodeLogLines(sysRaw);
+  } catch {}
+  try {
+    const accRaw = dbEnabled() ? (dbGetAccessLog(shopDomain) || "") : (fs.existsSync(accessLogPathFor(shopDomain)) ? fs.readFileSync(accessLogPathFor(shopDomain), "utf-8") : "");
+    accessLog = decodeLogLines(accRaw);
+  } catch {}
+  return { shopDomain, config: cfg, activity, systemLog, accessLog };
+}
+
+function writeBackup(shopDomain) {
+  if (REQUIRE_BACKUP_ENCRYPTION && !getEncryptionKey()) {
+    throw new Error("Backup encryption required but DATA_ENCRYPTION_KEY is missing/invalid");
+  }
+  const payload = { ts: Date.now(), env: APP_ENV, ...collectShopData(shopDomain) };
+  const filename = `${shopKey(shopDomain)}-${Date.now()}.json`;
+  const fullPath = path.join(BACKUP_DIR, filename);
+  fs.writeFileSync(fullPath, encodePayload(payload), "utf-8");
+  return { filename, fullPath };
+}
+
+function pruneAccessLog(shopDomain) {
+  try {
+    let raw = "";
+    if (dbEnabled()) {
+      raw = dbGetAccessLog(shopDomain) || "";
+    } else {
+      const p = accessLogPathFor(shopDomain);
+      if (!fs.existsSync(p)) return;
+      raw = fs.readFileSync(p, "utf-8");
+    }
+    const decoded = decodeLogLines(raw);
+    const { entries, changed } = applyRetention(decoded);
+    if (!changed) return;
+    const nextRaw = encodeLogLines(entries);
+    if (dbEnabled()) {
+      const d = getDb();
+      if (d) {
+        d.prepare("INSERT INTO access_logs (shop, log, updated_at) VALUES (?, ?, ?) ON CONFLICT(shop) DO UPDATE SET log = excluded.log, updated_at = excluded.updated_at")
+          .run(shopDomain, nextRaw, new Date().toISOString());
+      }
+    } else {
+      fs.writeFileSync(accessLogPathFor(shopDomain), nextRaw, "utf-8");
+    }
+  } catch {}
 }
 
 function runCmd(cmd) {
@@ -2135,7 +2436,27 @@ function runCmd(cmd) {
   });
 }
 
-function startupStatus() {
+
+setInterval(() => {
+  try {
+    const shops = listShops();
+    for (const shop of shops) {
+      pruneSystemLog(shop);
+      pruneAccessLog(shop);
+    }
+  } catch {}
+}, 6 * 60 * 60 * 1000);
+
+if (AUTO_BACKUP_INTERVAL_HOURS > 0) {
+  setInterval(() => {
+    try {
+      const shops = listShops();
+      for (const shop of shops) {
+        try { writeBackup(shop); } catch {}
+      }
+    } catch {}
+  }, AUTO_BACKUP_INTERVAL_HOURS * 60 * 60 * 1000);
+}function startupStatus() {
   if (!STARTUP_CMD) return false;
   return fs.existsSync(STARTUP_CMD);
 }
@@ -2441,6 +2762,8 @@ app.get("/admin/shopify/context", async (req, res) => {
   }
 });
 
+
+
 app.get("/admin/shopify/products", async (req, res) => {
   try {
     const ctx = getCfgFromReq(req, res);
@@ -2456,6 +2779,8 @@ app.get("/admin/shopify/products", async (req, res) => {
     return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
   }
 });
+
+
 
 // Shopify insights (v0.4.2) — aggregated business/customer snapshot (NO PII)
 app.get("/admin/shopify/insights", async (req, res) => {
@@ -2914,6 +3239,8 @@ app.post("/admin/setup/autopopulate", async (req, res) => {
   }
 });
 
+
+
 // v0.4.2 — Target customer suggestion (NO PII). Stores suggestion separately.
 // Uses Shopify insights + optional AI (if enabled via body.ai === true).
 app.post("/admin/setup/suggest/target-customer", async (req, res) => {
@@ -3145,6 +3472,8 @@ Return ONLY valid JSON:
   }
 });
 
+
+
 // Shopify disconnect (local logout) — clears only the Shopify session
 app.post("/admin/shopify/disconnect", (req, res) => {
   try {
@@ -3167,6 +3496,8 @@ app.post("/admin/shopify/disconnect", (req, res) => {
   }
 });
 
+
+
 // v0.3 setup wizard — Step 1: save business_name
 app.post("/admin/setup/step1", (req, res) => {
   try {
@@ -3187,6 +3518,8 @@ cfg.businessContext.setupStep = 2;
     return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
   }
 });
+
+
 
 // v0.3 setup wizard — Step 2: save industry
 app.post("/admin/setup/step2", (req, res) => {
@@ -3209,6 +3542,8 @@ cfg.businessContext.setupStep = 3;
     return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
   }
 });
+
+
 
 // v0.3 setup wizard — Step 3: save products/services
 // v0.3 setup wizard — Step 3: save products/services (+ excluded topics)
@@ -3256,6 +3591,8 @@ if (Array.isArray(incoming)) {
     return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
   }
 });
+
+
 
 app.post("/admin/setup/suggest-target-customer", async (req, res) => {
   let ctx;
@@ -3450,6 +3787,8 @@ app.post("/admin/setup/step4", (req, res) => {
   }
 });
 
+
+
 // v0.3 setup wizard — Step 5: save content goals
 app.post("/admin/setup/step5", (req, res) => {
   try {
@@ -3479,6 +3818,8 @@ app.post("/admin/setup/step5", (req, res) => {
   }
 });
 
+
+
 // v0.3 setup wizard — Step 6: save content intent default
 app.post("/admin/setup/intent", (req, res) => {
   try {
@@ -3499,6 +3840,8 @@ app.post("/admin/setup/intent", (req, res) => {
     return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
   }
 });
+
+
 
 // v0.3 setup wizard — Step 7: save posting tone
 app.post("/admin/setup/step6", (req, res) => {
@@ -3522,6 +3865,8 @@ app.post("/admin/setup/step6", (req, res) => {
   }
 });
 
+
+
 // v0.3 setup wizard — Back: step-1 (min 1)
 app.post("/admin/setup/back", (req, res) => {
   try {
@@ -3542,6 +3887,8 @@ app.post("/admin/setup/back", (req, res) => {
     return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
   }
 });
+
+
 
 // v0.3 setup wizard: begin (Step 0 -> Step 1)
 app.post("/admin/setup/begin", (req, res) => {
@@ -3617,6 +3964,8 @@ app.post("/admin/setup/finish", (req, res) => {
     return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
   }
 });
+
+
 
 app.get("/admin/clock", (req, res) => {
   const ctx = getCfgFromReq(req, res);
@@ -3696,13 +4045,27 @@ app.get("/admin/system-log", (req, res) => {
       }
       raw = fs.readFileSync(logPath, "utf-8");
     }
-    const lines = raw.split("\n").filter(Boolean).slice(-500);
+    const decoded = raw.split("\n").filter(Boolean).map((l) => decodeLogLine(l)).filter(Boolean);
+    const { entries, changed } = applyRetention(decoded);
+    const tail = entries.slice(-500);
+    if (changed) {
+      const nextRaw = tail.map((e) => encodeLogLine(e)).join("\n") + "\n";
+      if (dbEnabled()) {
+        dbSetSystemLog(ctx.shop, nextRaw);
+      } else {
+        const logPath = systemLogPathFor(ctx.shop);
+        try { fs.writeFileSync(logPath, nextRaw, "utf-8"); } catch {}
+      }
+    }
 
+    const lines = tail.map((e) => JSON.stringify(e));
     return res.json({ ok: true, lines });
   } catch (e) {
     return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
   }
 });
+
+
 
 app.post("/admin/toggle-mode", (req, res) => {
   const ctx = getCfgFromReq(req, res);
@@ -3765,6 +4128,8 @@ app.post("/admin/daily-limit", (req, res) => {
   }
 });
 
+
+
 // Reset everything to defaults (clears logs, topics, schedules, setup)
 app.post("/admin/reset-all", (req, res) => {
   try {
@@ -3825,6 +4190,8 @@ app.post("/admin/reset-all", (req, res) => {
     return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
   }
 });
+
+
 
 app.post("/admin/update-schedule", (req, res) => {
   const ctx = getCfgFromReq(req, res);
@@ -4060,6 +4427,8 @@ app.post("/admin/topics/release-archive", (req, res) => {
   }
 });
 
+
+
 app.post("/admin/topicgen/update", (req, res) => {
   try {
     const ctx = getCfgFromReq(req, res);
@@ -4095,6 +4464,8 @@ app.post("/admin/topicgen/update", (req, res) => {
   }
 });
 
+
+
 app.post("/admin/topicgen/toggle", (req, res) => {
   try {
     const ctx = getCfgFromReq(req, res);
@@ -4116,6 +4487,8 @@ app.post("/admin/topicgen/toggle", (req, res) => {
     return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
   }
 });
+
+
 
 app.post("/admin/topics/clear-queue", (req, res) => {
   const ctx = getCfgFromReq(req, res);
@@ -4219,6 +4592,8 @@ Shopify insights (use for relevance, no PII): ${JSON.stringify(insights || cfg?.
   }
 });
 
+
+
 // Preview: apply edits based on user instruction
 app.post("/admin/preview/edit", async (req, res) => {
   try {
@@ -4276,6 +4651,8 @@ ${content}
     return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
   }
 });
+
+
 
 // Preview: batch fetch/generate for topics
 app.post("/admin/preview/batch", async (req, res) => {
@@ -4350,6 +4727,8 @@ Keep it helpful and not salesy.
   }
 });
 
+
+
 // Product post: preview (manual-only)
 app.post("/admin/product-post/preview", async (req, res) => {
   try {
@@ -4416,6 +4795,8 @@ Shopify insights (use for relevance, no PII): ${JSON.stringify(insights || cfg?.
     return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
   }
 });
+
+
 
 // Product post: publish (manual-only)
 app.post("/admin/product-post/publish", async (req, res) => {
@@ -4560,6 +4941,8 @@ Shopify insights (use for relevance, no PII): ${JSON.stringify(insights || cfg?.
     return res.status(500).json({ ok: false, error: String(e || "Unknown error") });
   }
 });
+
+
 
 async function createSeoPost(shopDomain, topicOverride, modeOverride) {
   const cfg = loadConfig(shopDomain);
